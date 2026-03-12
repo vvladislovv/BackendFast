@@ -4,9 +4,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-backend_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backend_password}
-      POSTGRES_DB: ${POSTGRES_DB:-backend_db}
+      POSTGRES_USER: backend_user
+      POSTGRES_PASSWORD: backend_password
+      POSTGRES_DB: backend_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -14,7 +14,7 @@ services:
     networks:
       - backend-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-backend_user}"]
+      test: ["CMD-SHELL", "pg_isready -U backend_user -d backend_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,16 +28,17 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-backend_user}:${POSTGRES_PASSWORD:-backend_password}@db:5432/${POSTGRES_DB:-backend_db}
-      SECRET_KEY: ${SECRET_KEY}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS}
-      DEBUG: ${DEBUG:-False}
+      DATABASE_URL: postgresql+asyncpg://backend_user:backend_password@db:5432/backend_db
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-your-token}
+      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS:-123456789}
+      DEBUG: "False"
       HOST: 0.0.0.0
       PORT: 8000
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "8000:8000"
     volumes:
       - ./logs:/app/logs
     networks:
@@ -60,11 +61,12 @@ services:
       - db
       - api
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-backend_user}:${POSTGRES_PASSWORD:-backend_password}@db:5432/${POSTGRES_DB:-backend_db}
-      SECRET_KEY: ${SECRET_KEY}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql+asyncpg://backend_user:backend_password@db:5432/backend_db
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-your-token}
+      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS:-123456789}
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app
     volumes:
       - ./logs:/app/logs
     networks:
