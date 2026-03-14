@@ -48,12 +48,6 @@ class APIKeyMiddleware(AbstractMiddleware):
             await self.app(scope, receive, send)
             return
         
-        # Пропускаем endpoint для загрузки файлов (доступен с фронтенда)
-        if path == "/api/v1/upload" and method == "POST":
-            logger.info("Пропускаем проверку API ключа для POST /api/v1/upload")
-            await self.app(scope, receive, send)
-            return
-        
         # Все остальные запросы к /applications требуют API ключ
         if path.startswith("/api/v1/applications"):
             logger.info(f"Проверка API ключа для {method} {path}")

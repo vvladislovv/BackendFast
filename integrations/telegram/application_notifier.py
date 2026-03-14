@@ -33,14 +33,7 @@ async def notify_new_application(application_data: dict):
         # Отправляем всем админам
         for admin_id in settings.admin_ids_list:
             try:
-                # Отправляем текст
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text=text,
-                    parse_mode="HTML"
-                )
-                
-                # Если есть файл, отправляем его отдельным сообщением
+                # Если есть файл, отправляем его вместе с текстом в одном сообщении
                 if application_data.get('file_path'):
                     file_path = Path(application_data['file_path'])
                     if file_path.exists():
@@ -49,13 +42,33 @@ async def notify_new_application(application_data: dict):
                             await bot.send_document(
                                 chat_id=admin_id,
                                 document=file,
-                                caption=f"📎 Файл к заявке #{application_data['id']}"
+                                caption=text,
+                                parse_mode="HTML"
                             )
-                            logger.info(f"Файл отправлен админу {admin_id}")
+                            logger.info(f"Заявка с файлом отправлена админу {admin_id}")
                         except Exception as e:
                             logger.error(f"Ошибка отправки файла админу {admin_id}: {e}")
+                            # Если не удалось отправить с файлом, отправляем только текст
+                            await bot.send_message(
+                                chat_id=admin_id,
+                                text=text,
+                                parse_mode="HTML"
+                            )
                     else:
                         logger.warning(f"Файл не найден: {file_path}")
+                        # Отправляем только текст
+                        await bot.send_message(
+                            chat_id=admin_id,
+                            text=text,
+                            parse_mode="HTML"
+                        )
+                else:
+                    # Если файла нет, отправляем только текст
+                    await bot.send_message(
+                        chat_id=admin_id,
+                        text=text,
+                        parse_mode="HTML"
+                    )
                 
                 logger.info(f"Уведомление о заявке {application_data['id']} отправлено админу {admin_id}")
             except Exception as e:

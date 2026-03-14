@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест заявки с файлом (base64)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .response.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .response.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e7f3ff;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="form-container">
+        <h1>📝 Создать заявку с файлом</h1>
+        <p style="text-align: center; color: #666;">Файл автоматически конвертируется в base64</p>
+
+        <form id="applicationForm">
+            <div class="form-group">
+                <label for="name">Имя *</label>
+                <input type="text" id="name" name="name" required placeholder="Иван Иванов">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required placeholder="ivan@example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="message">Сообщение *</label>
+                <textarea id="message" name="message" required
+                    placeholder="Хочу откликнуться на вакансию..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="company">Компания</label>
+                <input type="text" id="company" name="company" placeholder="ООО Компания">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Телефон</label>
+                <input type="tel" id="phone" name="phone" placeholder="+7 999 123-45-67">
+            </div>
+
+            <div class="form-group">
+                <label for="file">Файл (резюме, портфолио)</label>
+                <input type="file" id="file" name="file">
+                <div id="fileInfo" class="file-info" style="display: none;"></div>
+            </div>
+
+            <button type="submit">Отправить заявку</button>
+        </form>
+
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('applicationForm');
+        const fileInput = document.getElementById('file');
+        const fileInfo = document.getElementById('fileInfo');
+        const responseDiv = document.getElementById('response');
+
+        // Показываем информацию о выбранном файле
+        fileInput.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                fileInfo.style.display = 'block';
+                fileInfo.innerHTML = `
+                    <strong>Выбран файл:</strong><br>
+                    Имя: ${file.name}<br>
+                    Размер: ${sizeMB} MB<br>
+                    Тип: ${file.type || 'неизвестно'}
+                `;
+            } else {
+                fileInfo.style.display = 'none';
+            }
+        });
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                message: document.getElementById('message').value,
+                company: document.getElementById('company').value || null,
+                phone: document.getElementById('phone').value || null
+            };
+
+            // Конвертируем файл в base64, если выбран
+            const file = fileInput.files[0];
+            if (file) {
+                try {
+                    const base64 = await fileToBase64(file);
+                    formData.file_base64 = base64;
+                    formData.file_name = file.name;
+                } catch (error) {
+                    showResponse('Ошибка чтения файла: ' + error.message, 'error');
+                    return;
+                }
+            }
+
+            // Отправляем запрос
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/applications/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse(`
+                        ✅ Заявка успешно создана!<br><br>
+                        <strong>ID:</strong> ${data.id}<br>
+                        <strong>Имя:</strong> ${data.name}<br>
+                        <strong>Email:</strong> ${data.email}<br>
+                        <strong>Статус:</strong> ${data.status}<br>
+                        ${data.file_path ? `<strong>Файл:</strong> ${data.file_path}<br>` : ''}
+                        <strong>Создано:</strong> ${new Date(data.created_at).toLocaleString('ru-RU')}
+                    `, 'success');
+                    form.reset();
+                    fileInfo.style.display = 'none';
+                } else {
+                    showResponse('❌ Ошибка: ' + (data.detail || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showResponse('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        });
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Убираем префикс "data:*/*;base64,"
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function showResponse(message, type) {
+            responseDiv.innerHTML = message;
+            responseDiv.className = 'response ' + type;
+            responseDiv.style.display = 'block';
+
+            // Прокручиваем к ответу
+            responseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,29 +1,37 @@
 # Backend API - Управление контентом
 
-Полнофункциональный REST API для управления вакансиями, отзывами, статьями и кейсами.
+REST API для управления вакансиями, отзывами, статьями и кейсами.
 
-## 🚀 Быстрый старт
+## Запуск
 
 ```bash
-# Запуск всех сервисов
 docker-compose up -d
-
-# Проверка статуса
-docker-compose ps
-
-# Тестирование API
-chmod +x test_all_api.sh
-./test_all_api.sh
 ```
 
-## 📋 Возможности
+## Тестирование
 
-- 💼 **Вакансии** - управление вакансиями с рейтингом
-- ⭐ **Отзывы** - отзывы клиентов с оценкой 1-5 звезд
-- 📰 **Статьи** - публикации и новости
-- 💡 **Кейсы** - портфолио проектов с тегами
+```bash
+python scripts/test_api.py
+```
 
-## 🔧 Технологии
+## API ключ
+
+**Ключ:** `internal-bot-key-2026`  
+**Заголовок:** `X-API-Key`
+
+```bash
+curl -H "X-API-Key: internal-bot-key-2026" http://localhost:8000/api/v1/vacancies
+```
+
+## Swagger
+
+http://localhost:8000/schema/swagger
+
+## Документация
+
+[API.md](API.md) - полная документация с примерами
+
+## Технологии
 
 - **Framework**: Litestar 2.12.1
 - **Database**: PostgreSQL + SQLAlchemy (async)
@@ -37,6 +45,14 @@ chmod +x test_all_api.sh
 
 ### Swagger UI
 Интерактивная документация: **http://localhost:8000/schema/swagger**
+
+**⚠️ Важно:** Для тестирования через Swagger UI нужно вручную добавлять заголовок `X-API-Key` в каждом запросе.  
+Подробная инструкция: **[SWAGGER_USAGE.md](SWAGGER_USAGE.md)**
+
+### Тестирование API
+Подробные инструкции по тестированию API с примерами: **[API_TESTING.md](API_TESTING.md)**
+
+**API Key для тестирования:** `internal-bot-key-2026`
 
 ### Endpoints
 

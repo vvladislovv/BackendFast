@@ -36,21 +36,23 @@ class VacancyController(Controller):
         "/",
         summary="Создать вакансию",
         description="""
-        Создает новую вакансию в системе.
+        Создание новой вакансии.
         
-        **Обязательные поля:**
-        - `title` - Название вакансии (1-255 символов)
-        - `url` - Ссылка на вакансию (1-500 символов, валидный URL)
-        - `employment_type` - Тип занятости (1-100 символов)
+        **Параметры тела запроса (JSON):**
+        - **title** (обязательно): Название вакансии (1-255 символов)
+        - **description** (обязательно): Описание вакансии (минимум 1 символ)
+        - **requirements** (опционально): Требования к кандидату
+        - **salary_from** (опционально): Зарплата от (целое число)
+        - **salary_to** (опционально): Зарплата до (целое число)
+        - **location** (опционально): Местоположение (до 255 символов)
+        - **employment_type** (опционально): Тип занятости (до 100 символов, например: "Полная занятость", "Удаленная работа")
+        - **experience** (опционально): Требуемый опыт (до 100 символов, например: "1-3 года", "Без опыта")
         
-        **Опциональные поля:**
-        - `description` - Описание вакансии
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
         
-        **Возможные ошибки:**
-        - `400` - Ошибка валидации (неверный формат данных, пустые обязательные поля)
-        - `500` - Внутренняя ошибка сервера
+        **Ответ:** Созданная вакансия с рейтингом 0 и статусом is_hidden=false
         """,
-        status_code=201,
+        status_code=201
     )
     async def create_vacancy(
         self,
@@ -66,40 +68,35 @@ class VacancyController(Controller):
         "/",
         summary="Получить список вакансий",
         description="""
-        Возвращает список всех вакансий.
+        Получение всех видимых вакансий (is_hidden=false), отсортированных по рейтингу.
         
-        **Query параметры:**
-        - `include_hidden` (bool, default=false) - Включить скрытые вакансии
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
         
-        **Ответ:**
-        - `200` - Массив вакансий (может быть пустым)
-        
-        **Сортировка:** По рейтингу (DESC), затем по дате создания (DESC)
-        """,
+        **Ответ:** Массив вакансий без скрытых
+        """
     )
     async def get_vacancies(
         self,
         vacancy_service: VacancyService,
-        include_hidden: bool = False,
     ) -> list[VacancyResponse]:
         """Получить все вакансии."""
-        logger.info("GET /api/v1/vacancies - получение всех вакансий")
-        vacancies = await vacancy_service.get_all(include_hidden=include_hidden)
+        logger.info("GET /api/v1/vacancies")
+        vacancies = await vacancy_service.get_all(include_hidden=False)
         return [VacancyResponse.model_validate(v) for v in vacancies]
     
     @get(
         "/{vacancy_id:int}",
         summary="Получить вакансию по ID",
         description="""
-        Возвращает одну вакансию по её ID.
+        Получение конкретной вакансии по её ID.
         
-        **Path параметры:**
-        - `vacancy_id` (int) - ID вакансии
+        **Параметры пути:**
+        - **vacancy_id**: ID вакансии (целое число)
         
-        **Возможные ответы:**
-        - `200` - Вакансия найдена
-        - `404` - Вакансия не найдена
-        """,
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
+        
+        **Ответ:** Вакансия с полной информацией или ошибка 404
+        """
     )
     async def get_vacancy(
         self,
@@ -115,22 +112,25 @@ class VacancyController(Controller):
         "/{vacancy_id:int}",
         summary="Обновить вакансию",
         description="""
-        Обновляет существующую вакансию. Все поля опциональны.
+        Полное обновление вакансии.
         
-        **Path параметры:**
-        - `vacancy_id` (int) - ID вакансии
+        **Параметры пути:**
+        - **vacancy_id**: ID вакансии (целое число)
         
-        **Поля для обновления:**
-        - `title` - Новое название (1-255 символов)
-        - `url` - Новая ссылка (1-500 символов)
-        - `employment_type` - Новый тип занятости (1-100 символов)
-        - `description` - Новое описание
+        **Параметры тела запроса (JSON):** Все поля опциональны
+        - **title**: Новое название вакансии
+        - **description**: Новое описание
+        - **requirements**: Новые требования
+        - **salary_from**: Новая зарплата от
+        - **salary_to**: Новая зарплата до
+        - **location**: Новое местоположение
+        - **employment_type**: Новый тип занятости
+        - **experience**: Новый требуемый опыт
         
-        **Возможные ответы:**
-        - `200` - Вакансия обновлена
-        - `400` - Ошибка валидации
-        - `404` - Вакансия не найдена
-        """,
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
+        
+        **Ответ:** Обновленная вакансия
+        """
     )
     async def update_vacancy(
         self,
@@ -147,16 +147,16 @@ class VacancyController(Controller):
         "/{vacancy_id:int}",
         summary="Удалить вакансию",
         description="""
-        Удаляет вакансию из системы безвозвратно.
+        Удаление вакансии из базы данных.
         
-        **Path параметры:**
-        - `vacancy_id` (int) - ID вакансии
+        **Параметры пути:**
+        - **vacancy_id**: ID вакансии (целое число)
         
-        **Возможные ответы:**
-        - `200` - Вакансия удалена
-        - `404` - Вакансия не найдена
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
+        
+        **Ответ:** Сообщение об успешном удалении
         """,
-        status_code=200,
+        status_code=200
     )
     async def delete_vacancy(
         self,
@@ -172,61 +172,54 @@ class VacancyController(Controller):
         "/{vacancy_id:int}/hide",
         summary="Скрыть/показать вакансию",
         description="""
-        Изменяет видимость вакансии без удаления.
+        Изменение видимости вакансии.
         
-        **Path параметры:**
-        - `vacancy_id` (int) - ID вакансии
+        **Параметры пути:**
+        - **vacancy_id**: ID вакансии (целое число)
         
-        **Query параметры:**
-        - `is_hidden` (bool, optional) - true для скрытия, false для показа. Если не указан, переключает текущее состояние
+        **Параметры тела запроса (JSON):**
+        - **is_hidden** (обязательно): true - скрыть вакансию, false - показать вакансию
         
-        **Возможные ответы:**
-        - `200` - Видимость изменена
-        - `404` - Вакансия не найдена
-        """,
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
+        
+        **Ответ:** Обновленная вакансия
+        """
     )
     async def toggle_vacancy_hidden(
         self,
         vacancy_id: int,
+        data: VacancyHideUpdate,
         vacancy_service: VacancyService,
-        is_hidden: bool | None = Parameter(default=None, query="is_hidden"),
     ) -> VacancyResponse:
         """Скрыть/показать вакансию."""
         logger.info(f"PATCH /api/v1/vacancies/{vacancy_id}/hide")
-        
-        # Если is_hidden не указан, переключаем текущее состояние
-        if is_hidden is None:
-            vacancy = await vacancy_service.get_by_id(vacancy_id)
-            is_hidden = not vacancy.is_hidden
-        
-        vacancy = await vacancy_service.toggle_hidden(vacancy_id, is_hidden)
+        vacancy = await vacancy_service.toggle_hidden(vacancy_id, data.is_hidden)
         return VacancyResponse.model_validate(vacancy)
     
     @patch(
         "/{vacancy_id:int}/rating",
         summary="Обновить рейтинг вакансии",
         description="""
-        Изменяет рейтинг вакансии для сортировки.
+        Изменение рейтинга вакансии для сортировки.
         
-        **Path параметры:**
-        - `vacancy_id` (int) - ID вакансии
+        **Параметры пути:**
+        - **vacancy_id**: ID вакансии (целое число)
         
-        **Query параметры:**
-        - `rating` (int, >= 0) - Новый рейтинг
+        **Параметры тела запроса (JSON):**
+        - **rating** (обязательно): Новый рейтинг (целое число, по умолчанию 0)
         
-        **Возможные ответы:**
-        - `200` - Рейтинг обновлен
-        - `400` - Некорректное значение рейтинга
-        - `404` - Вакансия не найдена
-        """,
+        **Требуется API ключ:** X-API-Key: internal-bot-key-2026
+        
+        **Ответ:** Обновленная вакансия
+        """
     )
     async def update_vacancy_rating(
         self,
         vacancy_id: int,
+        data: VacancyRatingUpdate,
         vacancy_service: VacancyService,
-        rating: int = Parameter(default=1, query="rating"),
     ) -> VacancyResponse:
         """Обновить рейтинг вакансии."""
         logger.info(f"PATCH /api/v1/vacancies/{vacancy_id}/rating")
-        vacancy = await vacancy_service.update_rating(vacancy_id, rating)
+        vacancy = await vacancy_service.update_rating(vacancy_id, data.rating)
         return VacancyResponse.model_validate(vacancy)

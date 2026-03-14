@@ -10,7 +10,6 @@ from api.v1.reviews import ReviewController
 from api.v1.articles import ArticleController
 from api.v1.cases import CaseController
 from api.v1.applications import ApplicationController
-from api.v1.upload import UploadController
 from core.config import settings
 from core.database import engine, get_db_session
 from core.auth import APIKeyMiddleware
@@ -22,109 +21,112 @@ logger = get_logger()
 
 
 async def startup() -> None:
-    """Действия при запуске приложения."""
-    logger.info("=" * 60)
-    logger.info("Запуск приложения Backend API")
-    logger.info(f"Debug режим: {settings.debug}")
-    logger.info(f"Host: {settings.host}:{settings.port}")
-    logger.info(f"Database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'configured'}")
-    logger.info("=" * 60)
+    logger.info("Запуск Backend API")
+    # Добавляем security scheme в OpenAPI после инициализации
+    if app.openapi_schema:
+        if not hasattr(app.openapi_schema, 'components') or app.openapi_schema.components is None:
+            from litestar.openapi.spec import Components
+            app.openapi_schema.components = Components()
+        if not hasattr(app.openapi_schema.components, 'security_schemes') or app.openapi_schema.components.security_schemes is None:
+            app.openapi_schema.components.security_schemes = {}
+        from litestar.openapi.spec import SecurityScheme
+        app.openapi_schema.components.security_schemes["APIKeyHeader"] = SecurityScheme(
+            type="apiKey",
+            name="X-API-Key",
+            security_scheme_in="header",
+            description="API ключ для доступа. Используйте: internal-bot-key-2026"
+        )
+        # Добавляем security requirement глобально
+        if not hasattr(app.openapi_schema, 'security') or app.openapi_schema.security is None:
+            app.openapi_schema.security = []
+        app.openapi_schema.security.append({"APIKeyHeader": []})
+        
+        # Кастомизируем схему для POST /api/v1/applications
+        if hasattr(app.openapi_schema, 'paths') and '/api/v1/applications' in app.openapi_schema.paths:
+            applications_path = app.openapi_schema.paths['/api/v1/applications']
+            if hasattr(applications_path, 'post'):
+                # Удаляем query параметры
+                applications_path.post.parameters = []
+                
+                # Добавляем правильный requestBody для multipart/form-data
+                applications_path.post.request_body = {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 255,
+                                        "description": "Имя клиента"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "description": "Email клиента"
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Сообщение от клиента"
+                                    },
+                                    "company": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "description": "Название компании (опционально)"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "maxLength": 50,
+                                        "description": "Телефон клиента (опционально)"
+                                    },
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "description": "Прикрепленный файл (опционально)"
+                                    }
+                                },
+                                "required": ["name", "email", "message"]
+                            }
+                        }
+                    },
+                    "required": True
+                }
+                logger.info("OpenAPI схема для POST /api/v1/applications обновлена")
 
 
 async def shutdown() -> None:
-    """Действия при остановке приложения."""
-    logger.info("=" * 60)
-    logger.info("Остановка приложения...")
     await engine.dispose()
-    logger.info("База данных отключена")
-    logger.info("=" * 60)
+    logger.info("Остановка Backend API")
 
 
 def app_exception_handler(request: Request, exc: AppException) -> Response:
-    """Обработчик кастомных исключений приложения."""
-    try:
-        method = getattr(request, 'method', 'UNKNOWN')
-        path = getattr(request.url, 'path', 'UNKNOWN') if hasattr(request, 'url') else 'UNKNOWN'
-    except:
-        method = 'UNKNOWN'
-        path = 'UNKNOWN'
-    
-    logger.warning(f"{exc.status_code} {exc.__class__.__name__}: {method} {path} - {exc.message}")
     return Response(
-        content={
-            "status_code": exc.status_code,
-            "detail": exc.message,
-            "error": exc.__class__.__name__
-        },
+        content={"status_code": exc.status_code, "detail": exc.message},
         status_code=exc.status_code
     )
 
 
 def not_found_handler(request: Request, exc: NotFoundException) -> Response:
-    """Обработчик ошибки 404."""
-    try:
-        method = getattr(request, 'method', 'UNKNOWN')
-        path = getattr(request.url, 'path', 'UNKNOWN') if hasattr(request, 'url') else 'UNKNOWN'
-    except:
-        method = 'UNKNOWN'
-        path = 'UNKNOWN'
-    
-    logger.warning(f"404 Not Found: {method} {path}")
     return Response(
-        content={
-            "status_code": 404,
-            "detail": f"Ресурс не найден: {path}",
-            "error": "Not Found"
-        },
+        content={"status_code": 404, "detail": "Ресурс не найден"},
         status_code=404
     )
 
 
 def validation_error_handler(request: Request, exc: ValidationException) -> Response:
-    """Обработчик ошибок валидации."""
-    try:
-        method = getattr(request, 'method', 'UNKNOWN')
-        path = getattr(request.url, 'path', 'UNKNOWN') if hasattr(request, 'url') else 'UNKNOWN'
-    except:
-        method = 'UNKNOWN'
-        path = 'UNKNOWN'
-    
-    logger.warning(f"400 Validation Error: {method} {path} - {exc.detail}")
     return Response(
-        content={
-            "status_code": 400,
-            "detail": "Ошибка валидации данных",
-            "errors": exc.extra if hasattr(exc, 'extra') else str(exc.detail),
-            "error": "Validation Error"
-        },
+        content={"status_code": 400, "detail": "Ошибка валидации"},
         status_code=400
     )
 
 
 def internal_server_error_handler(request: Request, exc: Exception) -> Response:
-    """Обработчик внутренних ошибок сервера."""
     import traceback
-    error_details = traceback.format_exc()
-    
-    # Безопасное получение метода и пути
-    try:
-        method = getattr(request, 'method', 'UNKNOWN')
-        path = getattr(request.url, 'path', 'UNKNOWN') if hasattr(request, 'url') else 'UNKNOWN'
-    except:
-        method = 'UNKNOWN'
-        path = 'UNKNOWN'
-    
-    # Логируем без форматирования чтобы избежать KeyError
-    logger.error(f"500 Internal Server Error: {method} {path}")
-    logger.error(error_details)
-    
+    logger.error(traceback.format_exc())
     return Response(
-        content={
-            "status_code": 500,
-            "detail": "Внутренняя ошибка сервера",
-            "error": "Internal Server Error",
-            "traceback": error_details if settings.debug else None
-        },
+        content={"status_code": 500, "detail": "Внутренняя ошибка сервера"},
         status_code=HTTP_500_INTERNAL_SERVER_ERROR
     )
 
@@ -138,13 +140,9 @@ app = Litestar(
         ArticleController,
         CaseController,
         ApplicationController,
-        UploadController,
     ],
     dependencies={"db_session": get_db_session},
-    middleware=[
-        APIKeyMiddleware,  # Проверка API ключей
-        create_logging_middleware(),  # Логирование
-    ],
+    middleware=[APIKeyMiddleware, create_logging_middleware()],
     exception_handlers={
         AppException: app_exception_handler,
         NotFoundException: not_found_handler,
@@ -152,81 +150,42 @@ app = Litestar(
         Exception: internal_server_error_handler,
     },
     openapi_config=OpenAPIConfig(
-        title="Backend API - Управление контентом",
+        title="Backend API",
         version="1.0.0",
         description="""
-# Backend API для управления контентом
-
-Полнофункциональный REST API для управления:
-- 💼 **Вакансиями** - создание, редактирование, управление рейтингом
-- ⭐ **Отзывами** - отзывы клиентов с рейтингом 1-5 звезд
-- 📰 **Статьями** - публикации и новости
-- 💡 **Кейсами** - портфолио проектов с тегами
-
-## Основные возможности
-
-### CRUD операции
-Все сущности поддерживают полный набор операций:
-- `POST` - Создание новой записи
-- `GET` - Получение списка или одной записи
-- `PUT` - Полное обновление записи
-- `PATCH` - Частичное обновление (рейтинг, видимость)
-- `DELETE` - Удаление записи
-
-### Управление видимостью
-Каждая сущность может быть скрыта/показана через `PATCH /{id}/hide`
-
-### Система рейтинга
-Управление рейтингом через `PATCH /{id}/rating`
-
-### Специальные функции
-- **Кейсы**: Пометка как "свежий" и получение только свежих кейсов
-- **Отзывы**: Рейтинг 1-5 звезд
-
-## Коды ответов
-
-- `200 OK` - Успешная операция
-- `201 Created` - Ресурс успешно создан
-- `400 Bad Request` - Ошибка валидации данных
-- `404 Not Found` - Ресурс не найден
-- `500 Internal Server Error` - Внутренняя ошибка сервера
-
-## Безопасность
-
-- ✅ Валидация всех входных данных
-- ✅ Защита от SQL injection через ORM
-- ✅ Ограничения длины полей
-- ✅ Типизация данных через Pydantic
-
-## База данных
-
-PostgreSQL с async SQLAlchemy ORM
+        # Backend API для управления контентом
+        
+        ## Аутентификация
+        Большинство эндпоинтов требуют API ключ в заголовке запроса:
+        ```
+        X-API-Key: internal-bot-key-2026
+        ```
+        
+        Используйте кнопку **Authorize** справа вверху, чтобы ввести API ключ один раз для всех запросов.
+        
+        ## Эндпоинты без API ключа
+        - `POST /api/v1/applications` - создание заявки (доступно с фронтенда)
+        
+        ## Основные сущности
+        - **Vacancies** - вакансии компании
+        - **Reviews** - отзывы клиентов
+        - **Articles** - статьи блога
+        - **Cases** - портфолио проектов
+        - **Applications** - заявки от клиентов
+        
+        ## Общие параметры
+        - **rating** - рейтинг для сортировки (целое число, по умолчанию 0)
+        - **is_hidden** - флаг видимости (true/false)
+        - **is_fresh** - флаг свежести для кейсов (true/false)
         """,
-        contact={
-            "name": "API Support",
-            "email": "support@example.com"
-        },
-        use_handler_docstrings=True,
-        tags=[
-            {"name": "Health", "description": "Проверка состояния API"},
-            {"name": "Vacancies", "description": "💼 Управление вакансиями"},
-            {"name": "Reviews", "description": "⭐ Управление отзывами клиентов"},
-            {"name": "Articles", "description": "📰 Управление статьями и публикациями"},
-            {"name": "Cases", "description": "💡 Управление кейсами и портфолио"},
-        ],
+        use_handler_docstrings=False,
     ),
     on_startup=[startup],
     on_shutdown=[shutdown],
-    debug=True,  # Включаем debug для полного traceback
+    debug=True,
 )
 
 
 if __name__ == "__main__":
     import uvicorn
-    
-    uvicorn.run(
-        "main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug,
-    )
+    uvicorn.run("main:app", host=settings.host, port=settings.port, reload=settings.debug)

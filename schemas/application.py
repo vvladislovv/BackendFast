@@ -10,7 +10,6 @@ class ApplicationCreate(BaseModel):
     email: EmailStr = Field(..., description="Email клиента")
     phone: str | None = Field(None, max_length=50, description="Телефон клиента")
     message: str = Field(..., min_length=1, description="Сообщение от клиента")
-    file_path: str | None = Field(None, max_length=500, description="Путь к загруженному файлу")
 
 
 class ApplicationResponse(BaseModel):

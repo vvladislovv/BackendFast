@@ -7,27 +7,9 @@ from utils.logger import get_logger
 logger = get_logger()
 
 
-@get(
-    "/health",
-    tags=["Health"],
-    summary="Проверка здоровья API",
-    description="""
-    Проверяет доступность и работоспособность API.
-    
-    **Ответ:**
-    - `200` - API работает нормально
-    
-    **Использование:** Для мониторинга и health checks
-    """,
-    status_code=HTTP_200_OK,
-)
+@get("/health", include_in_schema=False, status_code=HTTP_200_OK)
 async def health_check() -> dict[str, str]:
-    """
-    Health check endpoint.
-    
-    Returns:
-        Status информация о приложении
-    """
+    """Health check endpoint."""
     logger.info("Health check запрос")
     return {
         "status": "healthy",
@@ -36,25 +18,9 @@ async def health_check() -> dict[str, str]:
     }
 
 
-@get(
-    "/",
-    tags=["Health"],
-    summary="Корневой endpoint",
-    description="""
-    Возвращает информацию об API и ссылки на документацию.
-    
-    **Ответ:**
-    - `200` - Информация об API
-    """,
-    status_code=HTTP_200_OK,
-)
+@get("/", include_in_schema=False, status_code=HTTP_200_OK)
 async def root() -> dict[str, str]:
-    """
-    Root endpoint.
-    
-    Returns:
-        Приветственное сообщение
-    """
+    """Root endpoint."""
     return {
         "message": "Backend API",
         "docs": "/schema/swagger",
