@@ -11,16 +11,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Установка Python зависимостей
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Удаление build зависимостей для уменьшения размера
-RUN apt-get purge -y --auto-remove build-essential
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --force-reinstall alembic==1.13.3
 
 # Копирование кода приложения
 COPY . .
 
 # Создание папки для логов
 RUN mkdir -p logs
+
+# Установка PYTHONPATH
+ENV PYTHONPATH=/app
 
 # Порт приложения
 EXPOSE 8000

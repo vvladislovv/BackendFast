@@ -12,6 +12,6 @@ class Review(BaseModel):
     
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     company: Mapped[str] = mapped_column(String(255), nullable=False)
-    review_text: Mapped[str] = mapped_column(Text, nullable=False)
+    review: Mapped[str] = mapped_column(Text, nullable=False)
     stars: Mapped[int] = mapped_column(Integer, nullable=False)
-    photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    photo: Mapped[str | None] = mapped_column(String(500), nullable=True)

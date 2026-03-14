@@ -25,4 +25,4 @@ class BaseModel(Base):
         nullable=False
     )
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    rating: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

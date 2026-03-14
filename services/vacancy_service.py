@@ -18,15 +18,22 @@ class VacancyService:
     
     async def create(self, data: VacancyCreate) -> Vacancy:
         """Создать вакансию."""
-        logger.info(f"Создание вакансии: {data.title}")
+        logger.info(f"Создание вакансии: {data.title}, rating={data.rating}")
         
-        vacancy = Vacancy(**data.model_dump())
-        self.session.add(vacancy)
-        await self.session.commit()
-        await self.session.refresh(vacancy)
-        
-        logger.info(f"Вакансия создана с ID: {vacancy.id}")
-        return vacancy
+        try:
+            vacancy_data = {k: v for k, v in data.model_dump(exclude_none=False).items() if v is not None}
+            logger.info(f"Данные для создания: {vacancy_data}")
+            vacancy = Vacancy(**vacancy_data)
+            self.session.add(vacancy)
+            await self.session.commit()
+            await self.session.refresh(vacancy)
+            
+            logger.info(f"Вакансия создана с ID: {vacancy.id}, rating={vacancy.rating}")
+            return vacancy
+        except Exception as e:
+            logger.error(f"Ошибка при создании вакансии: {e}", exc_info=True)
+            await self.session.rollback()
+            raise
     
     async def get_all(self, include_hidden: bool = False) -> list[Vacancy]:
         """Получить все вакансии."""
@@ -53,7 +60,7 @@ class VacancyService:
         vacancy = result.scalar_one_or_none()
         
         if not vacancy:
-            logger.error(f"Вакансия с ID {vacancy_id} не найдена")
+            logger.error("Вакансия с ID {} не найдена", vacancy_id)
             raise NotFoundException(f"Вакансия с ID {vacancy_id} не найдена")
         
         return vacancy
@@ -65,6 +72,7 @@ class VacancyService:
         vacancy = await self.get_by_id(vacancy_id)
         
         update_data = data.model_dump(exclude_unset=True)
+        
         for field, value in update_data.items():
             setattr(vacancy, field, value)
         

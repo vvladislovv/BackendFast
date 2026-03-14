@@ -1,20 +1,19 @@
 """Pydantic схемы для кейсов."""
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
 
 class CaseBase(BaseModel):
     """Базовая схема кейса."""
-    name: str = Field(..., min_length=1, max_length=255)
-    about: str = Field(..., min_length=1)
-    tags: list[str] = Field(default_factory=list)
-    image_url: HttpUrl
-    link_url: HttpUrl
+    name: str = Field(..., min_length=1, max_length=255, description="Название кейса")
+    about: str = Field(..., min_length=1, description="Краткое описание")
+    tags: list[str] = Field(default_factory=list, description="Теги (Web, UI, React, TS)")
+    image: str = Field(..., min_length=1, description="Путь к изображению")
 
 
 class CaseCreate(CaseBase):
     """Схема создания кейса."""
-    pass
+    rating: int | None = Field(None, ge=1, description="Рейтинг для сортировки (по умолчанию 1)")
 
 
 class CaseUpdate(BaseModel):
@@ -22,8 +21,7 @@ class CaseUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     about: str | None = Field(None, min_length=1)
     tags: list[str] | None = None
-    image_url: HttpUrl | None = None
-    link_url: HttpUrl | None = None
+    image: str | None = None
 
 
 class CaseResponse(CaseBase):

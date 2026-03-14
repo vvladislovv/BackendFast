@@ -1,25 +1,25 @@
 """Pydantic схемы для статей."""
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
 
 class ArticleBase(BaseModel):
     """Базовая схема статьи."""
-    title: str = Field(..., min_length=1, max_length=255)
-    url: HttpUrl
-    photo_url: HttpUrl | None = None
+    title: str = Field(..., min_length=1, max_length=255, description="Название статьи")
+    url: str = Field(..., min_length=1, description="Ссылка на статью")
+    photo: str | None = Field(None, description="Путь к фото")
 
 
 class ArticleCreate(ArticleBase):
     """Схема создания статьи."""
-    pass
+    rating: int | None = Field(None, ge=1, description="Рейтинг для сортировки (по умолчанию 1)")
 
 
 class ArticleUpdate(BaseModel):
     """Схема обновления статьи."""
     title: str | None = Field(None, min_length=1, max_length=255)
-    url: HttpUrl | None = None
-    photo_url: HttpUrl | None = None
+    url: str | None = Field(None, min_length=1)
+    photo: str | None = None
 
 
 class ArticleResponse(ArticleBase):

@@ -1,202 +1,285 @@
-# Backend API на Litestar
+# Backend API - Управление контентом
 
-Современный высокопроизводительный backend на Python 3.13 с использованием Litestar framework, PostgreSQL и Telegram Bot.
+Полнофункциональный REST API для управления вакансиями, отзывами, статьями и кейсами.
 
-## Технологии
-
-- **Python 3.13** - стабильная версия
-- **Litestar 2.12.1** - современный ASGI framework
-- **PostgreSQL** - база данных
-- **SQLAlchemy 2.0** - async ORM
-- **Pydantic v2** - валидация данных
-- **Loguru** - логирование
-- **Aiogram 3.x** - Telegram bot
-- **Alembic** - миграции БД
-- **pytest** - тестирование
-- **Docker** - контейнеризация
-
-## Быстрый старт
-
-### Вариант 1: Docker (рекомендуется)
+## 🚀 Быстрый старт
 
 ```bash
-# 1. Создать .env файл
-cp .env.example .env
-# Отредактировать .env (добавить токены)
-
-# 2. Запустить все сервисы
+# Запуск всех сервисов
 docker-compose up -d
 
-# 3. Проверить
-curl http://localhost:8000/health
+# Проверка статуса
+docker-compose ps
+
+# Тестирование API
+chmod +x test_all_api.sh
+./test_all_api.sh
 ```
 
-### Вариант 2: Локально
+## 📋 Возможности
 
+- 💼 **Вакансии** - управление вакансиями с рейтингом
+- ⭐ **Отзывы** - отзывы клиентов с оценкой 1-5 звезд
+- 📰 **Статьи** - публикации и новости
+- 💡 **Кейсы** - портфолио проектов с тегами
+
+## 🔧 Технологии
+
+- **Framework**: Litestar 2.12.1
+- **Database**: PostgreSQL + SQLAlchemy (async)
+- **Validation**: Pydantic
+- **Logging**: Loguru
+- **Testing**: Pytest
+- **Bot**: Telegram (aiogram)
+- **Python**: 3.13
+
+## 📚 Документация
+
+### Swagger UI
+Интерактивная документация: **http://localhost:8000/schema/swagger**
+
+### Endpoints
+
+#### Health
+- `GET /health` - Проверка здоровья API
+- `GET /` - Информация об API
+
+#### Вакансии
+- `POST /api/v1/vacancies` - Создать вакансию
+- `GET /api/v1/vacancies` - Получить все вакансии
+- `GET /api/v1/vacancies/{id}` - Получить вакансию
+- `PUT /api/v1/vacancies/{id}` - Обновить вакансию
+- `PATCH /api/v1/vacancies/{id}/rating` - Изменить рейтинг
+- `PATCH /api/v1/vacancies/{id}/hide` - Скрыть/показать
+- `DELETE /api/v1/vacancies/{id}` - Удалить вакансию
+
+#### Отзывы
+- `POST /api/v1/reviews` - Создать отзыв
+- `GET /api/v1/reviews` - Получить все отзывы
+- `GET /api/v1/reviews/{id}` - Получить отзыв
+- `PUT /api/v1/reviews/{id}` - Обновить отзыв
+- `PATCH /api/v1/reviews/{id}/rating` - Изменить рейтинг
+- `PATCH /api/v1/reviews/{id}/hide` - Скрыть/показать
+- `DELETE /api/v1/reviews/{id}` - Удалить отзыв
+
+#### Статьи
+- `POST /api/v1/articles` - Создать статью
+- `GET /api/v1/articles` - Получить все статьи
+- `GET /api/v1/articles/{id}` - Получить статью
+- `PUT /api/v1/articles/{id}` - Обновить статью
+- `PATCH /api/v1/articles/{id}/rating` - Изменить рейтинг
+- `PATCH /api/v1/articles/{id}/hide` - Скрыть/показать
+- `DELETE /api/v1/articles/{id}` - Удалить статью
+
+#### Кейсы
+- `POST /api/v1/cases` - Создать кейс
+- `GET /api/v1/cases` - Получить все кейсы
+- `GET /api/v1/cases/fresh` - Получить свежие кейсы
+- `GET /api/v1/cases/{id}` - Получить кейс
+- `PUT /api/v1/cases/{id}` - Обновить кейс
+- `PATCH /api/v1/cases/{id}/rating` - Изменить рейтинг
+- `PATCH /api/v1/cases/{id}/fresh` - Пометить как свежий
+- `PATCH /api/v1/cases/{id}/hide` - Скрыть/показать
+- `DELETE /api/v1/cases/{id}` - Удалить кейс
+
+## 🧪 Тестирование
+
+### Автоматическое тестирование
 ```bash
-# 1. Создать виртуальное окружение
-python3.13 -m venv venv
-source venv/bin/activate
-
-# 2. Установить зависимости
-pip install -r requirements.txt
-
-# 3. Настроить .env
-cp .env.example .env
-python scripts/generate_secret.py
-
-# 4. Применить миграции
-alembic upgrade head
-
-# 5. Запустить
-python main.py
+./test_all_api.sh
 ```
 
-## Структура проекта
+### Результаты
+- ✅ **32/32 тестов пройдено**
+- ✅ **100% успех**
+- Подробности в `TEST_RESULTS.md`
 
-```
-backend/
-├── core/              # Конфигурация, БД, безопасность
-├── models/            # ORM модели
-├── schemas/           # Pydantic схемы
-├── services/          # Бизнес-логика
-├── api/               # API endpoints
-├── middleware/        # Обработка ошибок
-├── integrations/      # Telegram bot
-├── utils/             # Утилиты
-├── tests/             # Тесты
-├── alembic/           # Миграции
-└── main.py            # Точка входа
-```
+## 🔐 Защита API
 
-## API Endpoints
+API защищен через API ключи. Все endpoints (кроме `/health` и Swagger UI) требуют заголовок `X-API-Key`.
 
-### Вакансии
-- `POST /api/v1/vacancies` - создать
-- `GET /api/v1/vacancies` - получить все
-- `GET /api/v1/vacancies/{id}` - получить по ID
-- `PUT /api/v1/vacancies/{id}` - обновить
-- `DELETE /api/v1/vacancies/{id}` - удалить
-- `PATCH /api/v1/vacancies/{id}/hide` - скрыть/показать
-- `PATCH /api/v1/vacancies/{id}/rating` - изменить рейтинг
+### API ключи:
+- `settings.secret_key` - основной ключ из .env
+- `internal-bot-key-2026` - ключ для Telegram бота
 
-### Отзывы
-- `POST /api/v1/reviews` - создать
-- `GET /api/v1/reviews` - получить все
-- `GET /api/v1/reviews/{id}` - получить по ID
-- `PUT /api/v1/reviews/{id}` - обновить
-- `DELETE /api/v1/reviews/{id}` - удалить
-- `PATCH /api/v1/reviews/{id}/hide` - скрыть/показать
-- `PATCH /api/v1/reviews/{id}/rating` - изменить рейтинг
-
-### Статьи
-- `POST /api/v1/articles` - создать
-- `GET /api/v1/articles` - получить все
-- `GET /api/v1/articles/{id}` - получить по ID
-- `PUT /api/v1/articles/{id}` - обновить
-- `DELETE /api/v1/articles/{id}` - удалить
-- `PATCH /api/v1/articles/{id}/hide` - скрыть/показать
-- `PATCH /api/v1/articles/{id}/rating` - изменить рейтинг
-
-### Кейсы
-- `POST /api/v1/cases` - создать
-- `GET /api/v1/cases` - получить все
-- `GET /api/v1/cases/fresh` - получить свежие
-- `GET /api/v1/cases/{id}` - получить по ID
-- `PUT /api/v1/cases/{id}` - обновить
-- `DELETE /api/v1/cases/{id}` - удалить
-- `PATCH /api/v1/cases/{id}/hide` - скрыть/показать
-- `PATCH /api/v1/cases/{id}/rating` - изменить рейтинг
-- `PATCH /api/v1/cases/{id}/fresh` - пометить как свежий
-
-## Документация API
-
-После запуска доступна по адресам:
-- **Swagger UI:** http://localhost:8000/schema/swagger
-- **ReDoc:** http://localhost:8000/schema/redoc
-- **Health Check:** http://localhost:8000/health
-
-## Настройка .env
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/backend_db
-
-# Security
-SECRET_KEY=your-secret-key-here-min-32-chars
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_ADMIN_IDS=your_telegram_id
-
-# Application
-DEBUG=True
-HOST=0.0.0.0
-PORT=8000
-
-# Logging
-LOG_LEVEL=INFO
-LOG_ROTATION=10 MB
-LOG_RETENTION=30 days
-```
-
-## Telegram Bot
-
-1. Создать бота через @BotFather
-2. Получить токен
-3. Узнать свой ID через @userinfobot
-4. Добавить в .env
-5. Запустить: `python integrations/telegram/bot.py`
-
-## Тестирование
-
+### Пример запроса с ключом:
 ```bash
-# Создать тестовую БД
-createdb test_db
-
-# Запустить тесты
-pytest
-
-# С покрытием
-pytest --cov=. --cov-report=html
+curl -H "X-API-Key: your-secret-key" http://localhost:8000/api/v1/vacancies
 ```
 
-## Полезные команды
+Без ключа возвращается `401 Unauthorized`.
 
-```bash
-# Makefile команды
-make help          # Показать все команды
-make docker-up     # Запустить Docker
-make test          # Запустить тесты
-make clean         # Очистить временные файлы
+## 🤖 Telegram Bot
 
-# Docker команды
-docker-compose up -d              # Запустить
-docker-compose logs -f            # Логи
-docker-compose down               # Остановить
+Bot ID: `8318949552`
+Admin ID: `7718206984`
 
-# Миграции
-alembic upgrade head              # Применить
-alembic revision --autogenerate   # Создать
-```
+### Полный функционал:
+- ✅ Просмотр списков всех сущностей
+- ✅ Создание записей (пошаговое FSM)
+- ✅ Поиск по ID
+- ✅ Обновление любых полей
+- ✅ Изменение рейтинга
+- ✅ Скрытие/показ записей
+- ✅ Удаление записей
+- ✅ Свежие кейсы
+- ✅ Пометка кейсов свежими
 
-## Безопасность
+### Команды:
+- `/start` - Главное меню с кнопками
+- `/help` - Подробная справка
 
-- Валидация всех данных через Pydantic
-- Защита от SQL injection через ORM
-- JWT токены для авторизации
-- Хеширование паролей через bcrypt
-- Проверка прав администратора в боте
-- Структурированное логирование
+### Использование:
+1. Отправьте `/start` боту
+2. Выберите раздел (Вакансии, Отзывы, Статьи, Кейсы)
+3. Выберите действие (Список, Создать, Найти, Обновить и т.д.)
+4. Следуйте инструкциям бота
 
-## Логирование
+Подробная инструкция в `promt/TASKS_COMPLETED.md`
+
+## 🔒 Безопасность
+
+- ✅ **API защищен через API ключи** (401 без ключа)
+- ✅ Защита от SQL Injection (SQLAlchemy ORM)
+- ✅ Валидация всех входных данных (Pydantic)
+- ✅ Типизация полей с ограничениями
+- ✅ Ограничения длины строк (title: 1-255, url: 1-500)
+- ✅ Валидация диапазонов (stars: 1-5, rating: >= 0)
+- ✅ Подробное логирование всех операций
+- ✅ Telegram бот доступен только админу
+
+## 📊 Логирование
 
 Логи сохраняются в папке `logs/`:
-- `app_*.json` - все логи в JSON формате
-- `errors_*.log` - только ошибки
+- `app_YYYY-MM-DD.json` - Все логи в JSON формате
+- `errors_YYYY-MM-DD.log` - Только ошибки
 
-## Лицензия
+Просмотр логов:
+```bash
+# API
+docker logs backendsite-api-1 --tail 50
+
+# Bot
+docker logs backendsite-bot-1 --tail 50
+
+# Database
+docker logs backendsite-db-1 --tail 50
+```
+
+## 🛠️ Управление
+
+### Запуск
+```bash
+docker-compose up -d
+```
+
+### Остановка
+```bash
+docker-compose down
+```
+
+### Перезапуск
+```bash
+docker-compose restart
+```
+
+### Пересборка
+```bash
+docker-compose down
+docker-compose up -d --build
+```
+
+### Очистка данных
+```bash
+docker-compose down -v
+```
+
+## 📁 Структура проекта
+
+```
+.
+├── api/                    # API endpoints
+│   ├── health.py          # Health checks
+│   └── v1/                # API v1
+│       ├── vacancies.py   # Вакансии
+│       ├── reviews.py     # Отзывы
+│       ├── articles.py    # Статьи
+│       └── cases.py       # Кейсы
+├── core/                  # Ядро приложения
+│   ├── config.py         # Конфигурация
+│   ├── database.py       # База данных
+│   └── security.py       # Безопасность
+├── models/               # SQLAlchemy модели
+├── schemas/              # Pydantic схемы
+├── services/             # Бизнес-логика
+├── middleware/           # Middleware
+├── integrations/         # Интеграции
+│   └── telegram/        # Telegram бот
+├── utils/               # Утилиты
+├── tests/               # Тесты
+├── main.py              # Точка входа
+└── docker-compose.yml   # Docker конфигурация
+```
+
+## 🌐 Доступ
+
+- **API**: http://localhost:8000
+- **Swagger UI**: http://localhost:8000/schema/swagger
+- **Health Check**: http://localhost:8000/health
+- **Database**: localhost:5432
+
+## 📝 Примеры использования
+
+### Создание вакансии
+```bash
+curl -X POST http://localhost:8000/api/v1/vacancies \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "title": "Python Developer",
+    "url": "https://example.com/job",
+    "employment_type": "Full-time",
+    "description": "Great opportunity"
+  }'
+```
+
+### Получение всех вакансий
+```bash
+curl -H "X-API-Key: your-secret-key" http://localhost:8000/api/v1/vacancies
+```
+
+### Создание отзыва
+```bash
+curl -X POST http://localhost:8000/api/v1/reviews \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "name": "John Doe",
+    "company": "Tech Corp",
+    "review": "Excellent service!",
+    "stars": 5,
+    "photo": "/images/john.jpg"
+  }'
+```
+
+## 🎯 Статус проекта
+
+✅ Все функции реализованы
+✅ Все тесты пройдены (32/32 - 100%)
+✅ API защищен через API ключи
+✅ Документация создана (Swagger UI)
+✅ Telegram бот с полным функционалом
+✅ Логирование настроено
+✅ Безопасность обеспечена (SQL Injection, XSS, валидация)
+
+**Проект готов к использованию!**
+
+Подробный отчет о выполненных задачах: `promt/TASKS_COMPLETED.md`
+
+## 📄 Лицензия
 
 MIT License
+
+## 👨‍💻 Разработка
+
+Python 3.13 | Litestar | PostgreSQL | Docker

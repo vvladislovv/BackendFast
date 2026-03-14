@@ -20,7 +20,8 @@ class ReviewService:
         """Создать отзыв."""
         logger.info(f"Создание отзыва от: {data.name}")
         
-        review = Review(**data.model_dump())
+        review_data = {k: v for k, v in data.model_dump(exclude_none=False).items() if v is not None}
+        review = Review(**review_data)
         self.session.add(review)
         await self.session.commit()
         await self.session.refresh(review)
@@ -53,7 +54,7 @@ class ReviewService:
         review = result.scalar_one_or_none()
         
         if not review:
-            logger.error(f"Отзыв с ID {review_id} не найден")
+            logger.error("Отзыв с ID {} не найден", review_id)
             raise NotFoundException(f"Отзыв с ID {review_id} не найден")
         
         return review

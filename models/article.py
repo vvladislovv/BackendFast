@@ -12,4 +12,4 @@ class Article(BaseModel):
     
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     url: Mapped[str] = mapped_column(String(500), nullable=False)
-    photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    photo: Mapped[str | None] = mapped_column(String(500), nullable=True)

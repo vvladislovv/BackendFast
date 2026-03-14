@@ -1,5 +1,6 @@
 """Проверка прав администратора."""
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
+from typing import Union
 
 from core.config import settings
 from utils.logger import get_logger
@@ -14,9 +15,15 @@ def is_admin(user_id: int) -> bool:
     return is_admin_user
 
 
-async def admin_only(message: Message) -> bool:
+async def admin_only(event: Union[Message, CallbackQuery]) -> bool:
     """Фильтр для проверки прав администратора."""
-    if not is_admin(message.from_user.id):
-        logger.warning(f"Неавторизованный доступ от user_id={message.from_user.id}")
+    # Получаем user_id в зависимости от типа события
+    if isinstance(event, CallbackQuery):
+        user_id = event.from_user.id
+    else:
+        user_id = event.from_user.id
+    
+    if not is_admin(user_id):
+        logger.warning(f"Неавторизованный доступ от user_id={user_id}")
         return False
     return True

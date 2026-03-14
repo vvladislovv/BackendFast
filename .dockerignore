@@ -25,8 +25,8 @@ ENV/
 *.md
 !README.md
 
-# Tests
-tests/
+# Tests - commented out to allow testing in container
+# tests/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -50,10 +50,11 @@ docker-compose*.yml
 Thumbs.db
 .DS_Store?
 
-# Scripts
-scripts/
-
 # Temporary files
+*.tmp
+*.bak
+*.swp
+*~
 *.tmp
 *.bak
 *.swp

@@ -15,8 +15,8 @@ services:
       - backend-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U backend_user -d backend_db"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
     restart: unless-stopped
 
@@ -29,29 +29,23 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://backend_user:backend_password@db:5432/backend_db
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-your-token}
-      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS:-123456789}
+      SECRET_KEY: fSyRcOQ2dhOUJcg-yxBRfmV6S876Y0WJ3c_CsdT-ARk
+      TELEGRAM_BOT_TOKEN: 8318949552:AAETIEgzpnJJa4-lqkGA3CKWvPveGbuk5VY
+      TELEGRAM_ADMIN_IDS: 7718206984
       DEBUG: "False"
       HOST: 0.0.0.0
       PORT: 8000
       LOG_LEVEL: INFO
-      PYTHONPATH: /app
     ports:
       - "8000:8000"
     volumes:
       - ./logs:/app/logs
+      - ./uploads:/app/uploads
     networks:
       - backend-network
     restart: unless-stopped
     command: >
-      sh -c "alembic upgrade head && python main.py"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      sh -c "sleep 5 && python scripts/init_migrations.py && python main.py"
 
   bot:
     build:
@@ -62,17 +56,17 @@ services:
       - api
     environment:
       DATABASE_URL: postgresql+asyncpg://backend_user:backend_password@db:5432/backend_db
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-your-token}
-      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS:-123456789}
+      SECRET_KEY: fSyRcOQ2dhOUJcg-yxBRfmV6S876Y0WJ3c_CsdT-ARk
+      TELEGRAM_BOT_TOKEN: 8318949552:AAETIEgzpnJJa4-lqkGA3CKWvPveGbuk5VY
+      TELEGRAM_ADMIN_IDS: 7718206984
       LOG_LEVEL: INFO
-      PYTHONPATH: /app
+      API_URL: http://api:8000
     volumes:
       - ./logs:/app/logs
     networks:
       - backend-network
     restart: unless-stopped
-    command: python integrations/telegram/bot.py
+    command: sh -c "sleep 15 && python integrations/telegram/bot.py"
 
 networks:
   backend-network:

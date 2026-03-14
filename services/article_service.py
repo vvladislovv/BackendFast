@@ -20,7 +20,8 @@ class ArticleService:
         """Создать статью."""
         logger.info(f"Создание статьи: {data.title}")
         
-        article = Article(**data.model_dump())
+        article_data = {k: v for k, v in data.model_dump(exclude_none=False).items() if v is not None}
+        article = Article(**article_data)
         self.session.add(article)
         await self.session.commit()
         await self.session.refresh(article)
@@ -53,7 +54,7 @@ class ArticleService:
         article = result.scalar_one_or_none()
         
         if not article:
-            logger.error(f"Статья с ID {article_id} не найдена")
+            logger.error("Статья с ID {} не найдена", article_id)
             raise NotFoundException(f"Статья с ID {article_id} не найдена")
         
         return article

@@ -20,7 +20,8 @@ class CaseService:
         """Создать кейс."""
         logger.info(f"Создание кейса: {data.name}")
         
-        case = Case(**data.model_dump())
+        case_data = {k: v for k, v in data.model_dump(exclude_none=False).items() if v is not None}
+        case = Case(**case_data)
         self.session.add(case)
         await self.session.commit()
         await self.session.refresh(case)
@@ -68,7 +69,7 @@ class CaseService:
         case = result.scalar_one_or_none()
         
         if not case:
-            logger.error(f"Кейс с ID {case_id} не найден")
+            logger.error("Кейс с ID {} не найден", case_id)
             raise NotFoundException(f"Кейс с ID {case_id} не найден")
         
         return case
