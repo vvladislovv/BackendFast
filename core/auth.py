@@ -42,6 +42,12 @@ class APIKeyMiddleware(AbstractMiddleware):
             await self.app(scope, receive, send)
             return
         
+        # Пропускаем статические файлы (фотографии)
+        if path.startswith("/uploads"):
+            logger.info("Пропускаем статические файлы")
+            await self.app(scope, receive, send)
+            return
+        
         # Пропускаем endpoint для создания заявок (доступен с фронтенда)
         if path == "/api/v1/applications" and method == "POST":
             logger.info("Пропускаем проверку API ключа для POST /api/v1/applications")

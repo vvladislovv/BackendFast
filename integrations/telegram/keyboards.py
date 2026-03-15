@@ -229,61 +229,10 @@ def get_create_stars_keyboard() -> InlineKeyboardMarkup:
     return keyboard
 
 
-def get_names_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора имени."""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Иван Петров", callback_data="create_name_Иван Петров"),
-            InlineKeyboardButton(text="Мария Иванова", callback_data="create_name_Мария Иванова"),
-        ],
-        [
-            InlineKeyboardButton(text="Алексей Смирнов", callback_data="create_name_Алексей Смирнов"),
-            InlineKeyboardButton(text="Елена Козлова", callback_data="create_name_Елена Козлова"),
-        ],
-        [
-            InlineKeyboardButton(text="Дмитрий Соколов", callback_data="create_name_Дмитрий Соколов"),
-            InlineKeyboardButton(text="Анна Морозова", callback_data="create_name_Анна Морозова"),
-        ],
-        [InlineKeyboardButton(text="✏️ Ввести свое", callback_data="create_name_custom")],
-    ])
-    return keyboard
 
 
-def get_companies_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора компании."""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Яндекс", callback_data="create_company_Яндекс"),
-            InlineKeyboardButton(text="Сбербанк", callback_data="create_company_Сбербанк"),
-        ],
-        [
-            InlineKeyboardButton(text="ВТБ", callback_data="create_company_ВТБ"),
-            InlineKeyboardButton(text="Тинькофф", callback_data="create_company_Тинькофф"),
-        ],
-        [
-            InlineKeyboardButton(text="Ozon", callback_data="create_company_Ozon"),
-            InlineKeyboardButton(text="Wildberries", callback_data="create_company_Wildberries"),
-        ],
-        [
-            InlineKeyboardButton(text="МТС", callback_data="create_company_МТС"),
-            InlineKeyboardButton(text="Мегафон", callback_data="create_company_Мегафон"),
-        ],
-        [InlineKeyboardButton(text="✏️ Ввести свою", callback_data="create_company_custom")],
-    ])
-    return keyboard
 
 
-def get_review_templates_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора шаблона отзыва."""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👍 Отличная компания", callback_data="create_review_template_1")],
-        [InlineKeyboardButton(text="💼 Профессиональная команда", callback_data="create_review_template_2")],
-        [InlineKeyboardButton(text="🚀 Быстрый рост", callback_data="create_review_template_3")],
-        [InlineKeyboardButton(text="⚖️ Work-life balance", callback_data="create_review_template_4")],
-        [InlineKeyboardButton(text="💰 Хорошая зарплата", callback_data="create_review_template_5")],
-        [InlineKeyboardButton(text="✏️ Написать свой", callback_data="create_review_custom")],
-    ])
-    return keyboard
 
 
 def get_photo_skip_keyboard() -> InlineKeyboardMarkup:

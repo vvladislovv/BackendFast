@@ -37,17 +37,23 @@ class VacancyService:
     
     async def get_all(self, include_hidden: bool = False) -> list[Vacancy]:
         """Получить все вакансии."""
-        logger.info("Получение всех вакансий")
+        logger.info(f"Получение всех вакансий, include_hidden={include_hidden}")
         
         query = select(Vacancy).order_by(Vacancy.rating.desc(), Vacancy.created_at.desc())
         
         if not include_hidden:
             query = query.where(Vacancy.is_hidden == False)
+            logger.info("Фильтруем скрытые вакансии")
+        else:
+            logger.info("Включаем скрытые вакансии")
         
         result = await self.session.execute(query)
         vacancies = result.scalars().all()
         
         logger.info(f"Найдено вакансий: {len(vacancies)}")
+        for vacancy in vacancies:
+            logger.info(f"Вакансия ID {vacancy.id}: is_hidden={vacancy.is_hidden}")
+        
         return list(vacancies)
 
     async def get_by_id(self, vacancy_id: int) -> Vacancy:

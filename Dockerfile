@@ -17,8 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Копирование кода приложения
 COPY . .
 
-# Создание папки для логов
-RUN mkdir -p logs
+# Создание папок для логов и загрузок
+RUN mkdir -p logs uploads/photos && \
+    chmod 755 uploads uploads/photos
 
 # Установка PYTHONPATH
 ENV PYTHONPATH=/app

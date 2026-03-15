@@ -28,9 +28,9 @@ class ArticleController(Controller):
         return ArticleResponse.model_validate(article)
 
     @get("/", summary="Получить список статей", description="Получение всех видимых статей (is_hidden=false). **Требуется API ключ**")
-    async def get_articles(self, article_service: ArticleService) -> list[ArticleResponse]:
-        logger.info("GET /api/v1/articles")
-        articles = await article_service.get_all(include_hidden=False)
+    async def get_articles(self, article_service: ArticleService = Dependency(), include_hidden: bool = Parameter(default=False, query="include_hidden")) -> list[ArticleResponse]:
+        logger.info(f"GET /api/v1/articles?include_hidden={include_hidden}")
+        articles = await article_service.get_all(include_hidden=include_hidden)
         return [ArticleResponse.model_validate(a) for a in articles]
 
     @get("/{article_id:int}", summary="Получить статью", description="Получение статьи по ID. **Параметр пути:** article_id. **Требуется API ключ**")

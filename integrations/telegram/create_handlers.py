@@ -1,4 +1,5 @@
 """Обработчики создания записей."""
+import os
 import httpx
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -7,17 +8,15 @@ from aiogram.fsm.state import State, StatesGroup
 from integrations.telegram.admin_check import admin_only
 from integrations.telegram.keyboards import (
     get_back_keyboard,
-    get_names_keyboard,
-    get_companies_keyboard,
-    get_review_templates_keyboard,
     get_create_stars_keyboard,
     get_photo_skip_keyboard
 )
+from integrations.telegram.photo_handler import download_and_save_photo
 from utils.logger import get_logger
 
 logger = get_logger()
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 API_KEY = "internal-bot-key-2026"
 HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 
@@ -62,8 +61,8 @@ async def handle_create_callback(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard(entity_type))
     elif entity_type == "reviews":
         await state.set_state(ReviewForm.name)
-        text = "➕ <b>Создание отзыва</b>\n\nШаг 1/5: Выберите имя автора отзыва:"
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_names_keyboard())
+        text = "➕ <b>Создание отзыва</b>\n\nШаг 1/5: Введите имя автора отзыва:"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard("reviews"))
     elif entity_type == "articles":
         await state.set_state(ArticleForm.title)
         text = "➕ <b>Создание статьи</b>\n\nШаг 1/3: Введите название статьи:"
@@ -135,83 +134,10 @@ async def process_vacancy_description(message: Message, state: FSMContext):
     await state.clear()
 
 
-# Отзывы
-async def handle_name_selection(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора имени через кнопку."""
-    if not await admin_only(callback):
-        await callback.answer()
-        return
-    
-    if callback.data == "create_name_custom":
-        await callback.message.edit_text("Введите имя автора отзыва:")
-        await callback.answer()
-        return
-    
-    # Извлекаем имя из callback_data
-    name = callback.data.replace("create_name_", "")
-    await state.update_data(name=name)
-    await state.set_state(ReviewForm.company)
-    await callback.message.edit_text(
-        f"✅ Имя: {name}\n\nШаг 2/5: Выберите компанию:",
-        reply_markup=get_companies_keyboard()
-    )
-    await callback.answer()
 
 
-async def handle_company_selection(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора компании через кнопку."""
-    if not await admin_only(callback):
-        await callback.answer()
-        return
-    
-    if callback.data == "create_company_custom":
-        await callback.message.edit_text("Введите название компании:")
-        await callback.answer()
-        return
-    
-    # Извлекаем компанию из callback_data
-    company = callback.data.replace("create_company_", "")
-    await state.update_data(company=company)
-    await state.set_state(ReviewForm.review)
-    
-    data = await state.get_data()
-    await callback.message.edit_text(
-        f"✅ Имя: {data['name']}\n✅ Компания: {company}\n\nШаг 3/5: Выберите шаблон отзыва или напишите свой:",
-        reply_markup=get_review_templates_keyboard()
-    )
-    await callback.answer()
 
 
-async def handle_review_template_selection(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора шаблона отзыва."""
-    if not await admin_only(callback):
-        await callback.answer()
-        return
-    
-    if callback.data == "create_review_custom":
-        await callback.message.edit_text("Введите текст отзыва:")
-        await callback.answer()
-        return
-    
-    # Шаблоны отзывов
-    templates = {
-        "create_review_template_1": "Отличная компания с прекрасным коллективом! Работать здесь - одно удовольствие. Руководство всегда идет навстречу сотрудникам.",
-        "create_review_template_2": "Профессиональная команда, интересные проекты и возможности для роста. Рекомендую эту компанию как работодателя!",
-        "create_review_template_3": "Быстрый карьерный рост, современные технологии и дружелюбная атмосфера. Здесь ценят каждого сотрудника.",
-        "create_review_template_4": "Отличный баланс между работой и личной жизнью. Гибкий график, удаленная работа, адекватное руководство.",
-        "create_review_template_5": "Достойная зарплата, своевременные выплаты, социальный пакет. Компания заботится о своих сотрудниках."
-    }
-    
-    review_text = templates.get(callback.data, "")
-    await state.update_data(review=review_text)
-    await state.set_state(ReviewForm.stars)
-    
-    data = await state.get_data()
-    await callback.message.edit_text(
-        f"✅ Имя: {data['name']}\n✅ Компания: {data['company']}\n✅ Отзыв: {review_text[:50]}...\n\nШаг 4/5: Выберите количество звезд:",
-        reply_markup=get_create_stars_keyboard()
-    )
-    await callback.answer()
 
 
 async def handle_create_stars_selection(callback: CallbackQuery, state: FSMContext):
@@ -277,22 +203,19 @@ async def handle_photo_skip(callback: CallbackQuery, state: FSMContext):
 
 
 async def process_review_name(message: Message, state: FSMContext):
-    if not await admin_only(message):
-        return
+    """Обработка ввода имени автора отзыва."""
     await state.update_data(name=message.text)
     await state.set_state(ReviewForm.company)
-    await message.answer("Шаг 2/5: Выберите компанию:", reply_markup=get_companies_keyboard())
+    await message.answer("Шаг 2/5: Введите название компании:")
 
 
 async def process_review_company(message: Message, state: FSMContext):
-    if not await admin_only(message):
-        return
+    """Обработка ввода названия компании."""
     await state.update_data(company=message.text)
     await state.set_state(ReviewForm.review)
     data = await state.get_data()
     await message.answer(
-        f"✅ Имя: {data['name']}\n✅ Компания: {message.text}\n\nШаг 3/5: Выберите шаблон отзыва или напишите свой:",
-        reply_markup=get_review_templates_keyboard()
+        f"✅ Имя: {data['name']}\n✅ Компания: {message.text}\n\nШаг 3/5: Напишите текст отзыва:"
     )
 
 
@@ -337,10 +260,18 @@ async def process_review_photo(message: Message, state: FSMContext):
     if message.photo:
         # Берем самое большое фото
         photo = message.photo[-1]
-        photo_url = f"tg://photo/{photo.file_id}"
-        logger.info(f"Получено фото: {photo_url}")
+        # Скачиваем и сохраняем фото
+        photo_url = await download_and_save_photo(message.bot, photo.file_id)
+        logger.info(f"📷 ФОТО ОБРАБОТАНО для отзыва:")
+        logger.info(f"   File ID: {photo.file_id}")
+        logger.info(f"   Размер: {photo.width}x{photo.height}")
+        logger.info(f"   Размер файла: {photo.file_size} байт")
+        logger.info(f"   🔗 HTTP URL: {photo_url}")
     elif message.text and message.text != "-":
         photo_url = message.text
+        logger.info(f"📷 URL фото получен: {photo_url}")
+    else:
+        logger.info("📷 Фото пропущено пользователем")
     
     data = await state.get_data()
     payload = {
@@ -350,16 +281,23 @@ async def process_review_photo(message: Message, state: FSMContext):
         "stars": data["stars"],
         "photo": photo_url
     }
+    
+    logger.info(f"🔄 Создание отзыва с фото: {photo_url}")
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{API_URL}/api/v1/reviews", json=payload, headers=HEADERS, timeout=10.0)
             response.raise_for_status()
             result = response.json()
+        
+        logger.info(f"✅ Отзыв создан успешно! ID: {result['id']}, фото: {result.get('photo', 'нет')}")
+        
         await message.answer(
             f"✅ Отзыв создан!\n\nID: {result['id']}\nАвтор: {result['name']}\nКомпания: {result['company']}\nЗвезды: {'⭐' * result['stars']}",
             reply_markup=get_back_keyboard("reviews")
         )
     except httpx.HTTPStatusError as e:
+        logger.error(f"❌ Ошибка создания отзыва: {e.response.status_code}, {e.response.text}")
         if e.response.status_code == 400:
             await message.answer("❌ Некорректные данные. Проверьте введенную информацию", reply_markup=get_back_keyboard("reviews"))
         elif e.response.status_code == 422:
@@ -367,9 +305,10 @@ async def process_review_photo(message: Message, state: FSMContext):
         else:
             await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("reviews"))
     except httpx.TimeoutException:
+        logger.error("❌ Timeout при создании отзыва")
         await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("reviews"))
     except Exception as e:
-        logger.error(f"Ошибка создания отзыва: {e}")
+        logger.error(f"❌ Ошибка создания отзыва: {e}", exc_info=True)
         await message.answer("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("reviews"))
     await state.clear()
 
@@ -400,10 +339,18 @@ async def process_article_photo(message: Message, state: FSMContext):
     if message.photo:
         # Берем самое большое фото
         photo = message.photo[-1]
-        photo_url = f"tg://photo/{photo.file_id}"
-        logger.info(f"Получено фото: {photo_url}")
+        # Скачиваем и сохраняем фото
+        photo_url = await download_and_save_photo(message.bot, photo.file_id)
+        logger.info(f"📷 ФОТО ОБРАБОТАНО для статьи:")
+        logger.info(f"   File ID: {photo.file_id}")
+        logger.info(f"   Размер: {photo.width}x{photo.height}")
+        logger.info(f"   Размер файла: {photo.file_size} байт")
+        logger.info(f"   🔗 HTTP URL: {photo_url}")
     elif message.text and message.text != "-":
         photo_url = message.text
+        logger.info(f"📷 URL фото получен для статьи: {photo_url}")
+    else:
+        logger.info("📷 Фото пропущено пользователем для статьи")
     
     data = await state.get_data()
     payload = {
@@ -411,16 +358,23 @@ async def process_article_photo(message: Message, state: FSMContext):
         "url": data["url"],
         "photo": photo_url
     }
+    
+    logger.info(f"🔄 Создание статьи с фото: {photo_url}")
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{API_URL}/api/v1/articles", json=payload, headers=HEADERS, timeout=10.0)
             response.raise_for_status()
             result = response.json()
+        
+        logger.info(f"✅ Статья создана успешно! ID: {result['id']}, фото: {result.get('photo', 'нет')}")
+        
         await message.answer(
             f"✅ Статья создана!\n\nID: {result['id']}\nНазвание: {result['title']}",
             reply_markup=get_back_keyboard("articles")
         )
     except httpx.HTTPStatusError as e:
+        logger.error(f"❌ Ошибка создания статьи: {e.response.status_code}, {e.response.text}")
         if e.response.status_code == 400:
             await message.answer("❌ Некорректные данные. Проверьте введенную информацию", reply_markup=get_back_keyboard("articles"))
         elif e.response.status_code == 422:
@@ -428,9 +382,10 @@ async def process_article_photo(message: Message, state: FSMContext):
         else:
             await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("articles"))
     except httpx.TimeoutException:
+        logger.error("❌ Timeout при создании статьи")
         await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("articles"))
     except Exception as e:
-        logger.error(f"Ошибка создания статьи: {e}")
+        logger.error(f"❌ Ошибка создания статьи: {e}", exc_info=True)
         await message.answer("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("articles"))
     await state.clear()
 
@@ -470,10 +425,16 @@ async def process_case_image(message: Message, state: FSMContext):
     if message.photo:
         # Берем самое большое фото
         photo = message.photo[-1]
-        image_url = f"tg://photo/{photo.file_id}"
-        logger.info(f"Получено фото: {image_url}")
+        # Скачиваем и сохраняем фото
+        image_url = await download_and_save_photo(message.bot, photo.file_id)
+        logger.info(f"🖼️ ИЗОБРАЖЕНИЕ ОБРАБОТАНО для кейса:")
+        logger.info(f"   File ID: {photo.file_id}")
+        logger.info(f"   Размер: {photo.width}x{photo.height}")
+        logger.info(f"   Размер файла: {photo.file_size} байт")
+        logger.info(f"   🔗 HTTP URL: {image_url}")
     elif message.text:
         image_url = message.text
+        logger.info(f"🖼️ URL изображения получен для кейса: {image_url}")
     else:
         await message.answer("❌ Отправьте фото или URL изображения:")
         return
@@ -485,16 +446,23 @@ async def process_case_image(message: Message, state: FSMContext):
         "tags": data["tags"],
         "image": image_url
     }
+    
+    logger.info(f"🔄 Создание кейса с изображением: {image_url}")
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{API_URL}/api/v1/cases", json=payload, headers=HEADERS, timeout=10.0)
             response.raise_for_status()
             result = response.json()
+        
+        logger.info(f"✅ Кейс создан успешно! ID: {result['id']}, изображение: {result.get('image', 'нет')}")
+        
         await message.answer(
             f"✅ Кейс создан!\n\nID: {result['id']}\nНазвание: {result['name']}\nТеги: {', '.join(result['tags'])}",
             reply_markup=get_back_keyboard("cases")
         )
     except httpx.HTTPStatusError as e:
+        logger.error(f"❌ Ошибка создания кейса: {e.response.status_code}, {e.response.text}")
         if e.response.status_code == 400:
             await message.answer("❌ Некорректные данные. Проверьте введенную информацию", reply_markup=get_back_keyboard("cases"))
         elif e.response.status_code == 422:
@@ -502,9 +470,10 @@ async def process_case_image(message: Message, state: FSMContext):
         else:
             await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("cases"))
     except httpx.TimeoutException:
+        logger.error("❌ Timeout при создании кейса")
         await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("cases"))
     except Exception as e:
-        logger.error(f"Ошибка создания кейса: {e}")
+        logger.error(f"❌ Ошибка создания кейса: {e}", exc_info=True)
         await message.answer("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("cases"))
     await state.clear()
 

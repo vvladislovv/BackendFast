@@ -10,6 +10,7 @@ from api.v1.reviews import ReviewController
 from api.v1.articles import ArticleController
 from api.v1.cases import CaseController
 from api.v1.applications import ApplicationController
+from api.static_files import StaticFilesController
 from core.config import settings
 from core.database import engine, get_db_session
 from core.auth import APIKeyMiddleware
@@ -22,6 +23,25 @@ logger = get_logger()
 
 async def startup() -> None:
     logger.info("Запуск Backend API")
+    
+    # Проверяем и создаем директории для загрузок
+    from pathlib import Path
+    uploads_dir = Path("uploads")
+    photos_dir = Path("uploads/photos")
+    
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    
+    logger.info(f"📂 Директория uploads: {uploads_dir.absolute()} (существует: {uploads_dir.exists()})")
+    logger.info(f"📂 Директория photos: {photos_dir.absolute()} (существует: {photos_dir.exists()})")
+    
+    # Тестируем доступ к фотографиям
+    try:
+        from integrations.telegram.photo_handler import test_photo_access
+        test_photo_access()
+    except Exception as e:
+        logger.error(f"Ошибка тестирования фото: {e}")
+    
     # Добавляем security scheme в OpenAPI после инициализации
     if app.openapi_schema:
         if not hasattr(app.openapi_schema, 'components') or app.openapi_schema.components is None:
@@ -140,6 +160,7 @@ app = Litestar(
         ArticleController,
         CaseController,
         ApplicationController,
+        StaticFilesController,
     ],
     dependencies={"db_session": get_db_session},
     middleware=[APIKeyMiddleware, create_logging_middleware()],

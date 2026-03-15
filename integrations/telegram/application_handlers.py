@@ -1,4 +1,5 @@
 """Обработчики для работы с заявками."""
+import os
 import httpx
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -10,7 +11,7 @@ from utils.logger import get_logger
 
 logger = get_logger()
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 API_KEY = "internal-bot-key-2026"
 HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 

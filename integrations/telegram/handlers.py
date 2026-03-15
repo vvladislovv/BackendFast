@@ -1,4 +1,5 @@
 """Главный файл обработчиков Telegram бота."""
+import os
 import httpx
 from aiogram import Dispatcher, F
 from aiogram.filters import Command
@@ -14,7 +15,7 @@ from utils.logger import get_logger
 
 logger = get_logger()
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 API_KEY = "internal-bot-key-2026"
 HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 
@@ -251,24 +252,62 @@ async def handle_list_callback(callback: CallbackQuery):
 async def handle_hidden_callback(callback: CallbackQuery):
     """Обработка просмотра скрытых элементов."""
     entity_type = callback.data.replace("_hidden", "")
-    
+
     try:
-        # Получаем все элементы
+        # Получаем все элементы включая скрытые
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{API_URL}/api/v1/{entity_type}", headers=HEADERS, timeout=10.0)
+            response = await client.get(f"{API_URL}/api/v1/{entity_type}?include_hidden=true", headers=HEADERS, timeout=10.0)
             response.raise_for_status()
             all_items = response.json()
-        
+
+        logger.info(f"Получено {len(all_items)} элементов {entity_type}")
+
         # Фильтруем только скрытые
         hidden_items = [item for item in all_items if item.get('is_hidden', False)]
-        
+
+        logger.info(f"Из них скрытых: {len(hidden_items)}")
+        for item in all_items:
+            logger.debug(f"Элемент ID {item.get('id')}: is_hidden={item.get('is_hidden', False)}")
+
+        if not hidden_items:
+            # Если API не работает правильно, попробуем получить все элементы и проверить каждый отдельно
+            logger.info("Скрытых элементов не найдено через API, проверяем каждый элемент отдельно")
+
+            # Получаем список всех ID элементов
+            all_ids = []
+            if all_items:
+                all_ids = [item['id'] for item in all_items]
+            else:
+                # Если нет элементов, попробуем найти их через отдельные запросы
+                # Проверим ID от 1 до 10 для примера
+                for test_id in range(1, 11):
+                    try:
+                        item_response = await client.get(f"{API_URL}/api/v1/{entity_type}/{test_id}", headers=HEADERS, timeout=5.0)
+                        if item_response.status_code == 200:
+                            item = item_response.json()
+                            if item.get('is_hidden', False):
+                                hidden_items.append(item)
+                    except:
+                        continue
+
+            # Проверяем каждый элемент отдельно
+            for item_id in all_ids:
+                try:
+                    item_response = await client.get(f"{API_URL}/api/v1/{entity_type}/{item_id}", headers=HEADERS, timeout=5.0)
+                    if item_response.status_code == 200:
+                        item = item_response.json()
+                        if item.get('is_hidden', False):
+                            hidden_items.append(item)
+                except:
+                    continue
+
         if not hidden_items:
             await callback.message.edit_text("📭 Нет скрытых элементов", reply_markup=get_back_keyboard(entity_type))
             await callback.answer()
             return
-        
+
         text = f"🔒 <b>Скрытые элементы ({len(hidden_items)} шт.)</b>\n\n"
-        
+
         for item in hidden_items[:10]:  # Показываем первые 10
             if entity_type == "vacancies":
                 desc = item.get('description') or 'Нет описания'
@@ -303,12 +342,13 @@ async def handle_hidden_callback(callback: CallbackQuery):
                 text += f"   Теги: {', '.join(item.get('tags', []))}\n"
                 text += f"   Изображение: {item.get('image', 'Нет')}\n"
                 text += f"   Создано: {item['created_at'][:10]}\n\n"
-        
+
         if len(hidden_items) > 10:
             text += f"\n... и еще {len(hidden_items) - 10} скрытых записей"
-        
+
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard(entity_type))
     except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP ошибка при получении скрытых {entity_type}: {e.response.status_code}, {e.response.text}")
         if e.response.status_code == 404:
             await callback.message.edit_text("❌ Раздел не найден", reply_markup=get_back_keyboard(entity_type))
         elif e.response.status_code == 400:
@@ -316,9 +356,10 @@ async def handle_hidden_callback(callback: CallbackQuery):
         else:
             await callback.message.edit_text(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard(entity_type))
     except httpx.TimeoutException:
+        logger.error("Timeout при получении скрытых элементов")
         await callback.message.edit_text("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     except Exception as e:
-        logger.error(f"Ошибка получения скрытых {entity_type}: {e}")
+        logger.error(f"Ошибка получения скрытых {entity_type}: {e}", exc_info=True)
         await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     await callback.answer()
 
@@ -402,9 +443,6 @@ def register_handlers(dp: Dispatcher, api_url: str):
     dp.callback_query.register(handle_menu_help, F.data == "menu_help")
     
     # Callback handlers для создания отзывов через кнопки (ДОЛЖНЫ БЫТЬ ПЕРЕД ОБЩИМИ!)
-    dp.callback_query.register(create_handlers.handle_name_selection, F.data.startswith("create_name_"))
-    dp.callback_query.register(create_handlers.handle_company_selection, F.data.startswith("create_company_"))
-    dp.callback_query.register(create_handlers.handle_review_template_selection, F.data.startswith("create_review_"))
     dp.callback_query.register(create_handlers.handle_create_stars_selection, F.data.startswith("create_stars_"))
     dp.callback_query.register(create_handlers.handle_photo_skip, F.data.startswith("create_photo_"))
     

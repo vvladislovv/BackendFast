@@ -1,4 +1,5 @@
 """Обработчики действий с записями (get, delete, rating, hide, mark_fresh)."""
+import os
 import httpx
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -10,7 +11,7 @@ from utils.logger import get_logger
 
 logger = get_logger()
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 API_KEY = "internal-bot-key-2026"
 HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 
@@ -195,10 +196,10 @@ async def process_hide_toggle(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("❌ ID должен быть числом. Попробуйте снова:")
         return
-    
+
     data = await state.get_data()
     entity_type = data["entity_type"]
-    
+
     try:
         # Сначала получаем текущее состояние записи
         async with httpx.AsyncClient() as client:
@@ -207,12 +208,21 @@ async def process_hide_toggle(message: Message, state: FSMContext):
                 headers=HEADERS,
                 timeout=10.0
             )
+
+            if get_response.status_code == 404:
+                await message.answer(f"❌ Запись с ID {entity_id} не найдена", reply_markup=get_back_keyboard(entity_type))
+                await state.clear()
+                return
+
             get_response.raise_for_status()
             current_item = get_response.json()
-            
+
             # Переключаем состояние
-            new_hidden_state = not current_item.get('is_hidden', False)
-            
+            current_hidden = current_item.get('is_hidden', False)
+            new_hidden_state = not current_hidden
+
+            logger.info(f"Переключение видимости {entity_type}/{entity_id}: {current_hidden} -> {new_hidden_state}")
+
             # Отправляем запрос на изменение
             response = await client.patch(
                 f"{API_URL}/api/v1/{entity_type}/{entity_id}/hide",
@@ -222,10 +232,17 @@ async def process_hide_toggle(message: Message, state: FSMContext):
             )
             response.raise_for_status()
             result = response.json()
-        
+
         status = "скрыта" if result['is_hidden'] else "показана"
-        await message.answer(f"✅ Запись {status}!\n\nID: {result['id']}", reply_markup=get_back_keyboard(entity_type))
+        visibility_icon = "🔒" if result['is_hidden'] else "👁"
+
+        logger.info(f"Успешно изменена видимость: {result}")
+        await message.answer(
+            f"✅ Запись {status}! {visibility_icon}\n\nID: {result['id']}",
+            reply_markup=get_back_keyboard(entity_type)
+        )
     except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP ошибка при изменении видимости: {e.response.status_code}, {e.response.text}")
         if e.response.status_code == 404:
             await message.answer(f"❌ Запись с ID {entity_id} не найдена", reply_markup=get_back_keyboard(entity_type))
         elif e.response.status_code == 400:
@@ -233,9 +250,10 @@ async def process_hide_toggle(message: Message, state: FSMContext):
         else:
             await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard(entity_type))
     except httpx.TimeoutException:
+        logger.error("Timeout при изменении видимости")
         await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     except Exception as e:
-        logger.error(f"Ошибка переключения видимости: {e}")
+        logger.error(f"Ошибка переключения видимости: {e}", exc_info=True)
         await message.answer(f"❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     await state.clear()
 
@@ -355,37 +373,63 @@ async def handle_quick_visibility_toggle(callback: CallbackQuery):
     if not await admin_only(callback):
         await callback.answer()
         return
-    
+
     # Формат: hide_reviews_1 или show_reviews_1
     parts = callback.data.split("_")
     action = parts[0]  # hide или show
     entity_type = parts[1]  # reviews, vacancies, etc.
     entity_id = int(parts[2])
-    
+
     # Определяем новое значение is_hidden
     new_hidden_value = (action == "hide")
-    
+
+    logger.info(f"Быстрое переключение видимости: {action} {entity_type}/{entity_id} -> is_hidden={new_hidden_value}")
+
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.put(
+            # Сначала получаем текущий элемент для проверки
+            get_response = await client.get(
                 f"{API_URL}/api/v1/{entity_type}/{entity_id}",
+                headers=HEADERS,
+                timeout=10.0
+            )
+
+            if get_response.status_code == 404:
+                await callback.message.edit_text(
+                    f"❌ Элемент с ID {entity_id} не найден",
+                    reply_markup=get_back_keyboard(entity_type)
+                )
+                await callback.answer()
+                return
+
+            get_response.raise_for_status()
+            current_item = get_response.json()
+
+            logger.info(f"Текущий статус элемента {entity_id}: is_hidden={current_item.get('is_hidden', False)}")
+
+            # Отправляем запрос на изменение
+            response = await client.patch(
+                f"{API_URL}/api/v1/{entity_type}/{entity_id}/hide",
                 json={"is_hidden": new_hidden_value},
                 headers=HEADERS,
                 timeout=10.0
             )
             response.raise_for_status()
             result = response.json()
-        
+
         status_text = "скрыт" if new_hidden_value else "показан"
+        visibility_icon = "🔒" if new_hidden_value else "👁"
+
         await callback.message.edit_text(
-            f"✅ Элемент ID {entity_id} теперь {status_text}!",
+            f"✅ Элемент ID {entity_id} теперь {status_text}! {visibility_icon}",
             reply_markup=get_back_keyboard(entity_type)
         )
-        
+
         logger.info(f"Изменена видимость {entity_type}/{entity_id}: is_hidden={new_hidden_value}")
-        
+        logger.info(f"Результат API: {result}")
+
     except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP ошибка при изменении видимости: {e.response.status_code}")
+        logger.error(f"HTTP ошибка при изменении видимости: {e.response.status_code}, {e.response.text}")
         if e.response.status_code == 404:
             await callback.message.edit_text(
                 f"❌ Запись с ID {entity_id} не найдена",
@@ -407,5 +451,5 @@ async def handle_quick_visibility_toggle(callback: CallbackQuery):
             "❌ Произошла ошибка. Попробуйте позже",
             reply_markup=get_back_keyboard(entity_type)
         )
-    
+
     await callback.answer()

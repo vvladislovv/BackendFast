@@ -69,18 +69,18 @@ class VacancyController(Controller):
         description="""
         Получение всех видимых вакансий (is_hidden=false), отсортированных по рейтингу.
         
+        **Параметры query:**
+        - **include_hidden** (опционально): true - включить скрытые вакансии, false - только видимые (по умолчанию)
+        
         **Требуется API ключ:** X-API-Key: internal-bot-key-2026
         
-        **Ответ:** Массив вакансий без скрытых
+        **Ответ:** Массив вакансий
         """
     )
-    async def get_vacancies(
-        self,
-        vacancy_service: VacancyService,
-    ) -> list[VacancyResponse]:
+    async def get_vacancies(self, vacancy_service: VacancyService = Dependency(), include_hidden: bool = Parameter(default=False, query="include_hidden")) -> list[VacancyResponse]:
         """Получить все вакансии."""
-        logger.info("GET /api/v1/vacancies")
-        vacancies = await vacancy_service.get_all(include_hidden=False)
+        logger.info(f"GET /api/v1/vacancies?include_hidden={include_hidden}")
+        vacancies = await vacancy_service.get_all(include_hidden=include_hidden)
         return [VacancyResponse.model_validate(v) for v in vacancies]
     
     @get(

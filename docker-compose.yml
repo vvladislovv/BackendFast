@@ -63,6 +63,7 @@ services:
       API_URL: http://api:8000
     volumes:
       - ./logs:/app/logs
+      - ./uploads:/app/uploads
     networks:
       - backend-network
     restart: unless-stopped

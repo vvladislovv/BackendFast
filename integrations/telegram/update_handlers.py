@@ -1,4 +1,5 @@
 """Обработчики обновления записей."""
+import os
 import httpx
 from aiogram import F
 from aiogram.types import Message, CallbackQuery
@@ -14,12 +15,13 @@ from integrations.telegram.keyboards import (
     get_case_fields_keyboard,
     get_stars_keyboard
 )
+from integrations.telegram.photo_handler import download_and_save_photo
 from utils.logger import get_logger
 
 logger = get_logger()
 
 # Глобальная переменная для API URL
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 API_KEY = "internal-bot-key-2026"
 
 HEADERS = {
@@ -356,18 +358,31 @@ async def process_update_value(message: Message, state: FSMContext):
     if field == "photo" and message.photo:
         # Если отправлено фото, берем самое большое
         photo = message.photo[-1]
-        value = f"tg://photo/{photo.file_id}"
-        logger.info(f"Получено фото: {value}")
+        # Скачиваем и сохраняем фото
+        value = await download_and_save_photo(message.bot, photo.file_id)
+        logger.info(f"📷 ФОТО ОБРАБОТАНО для обновления {entity_type}/{entity_id}:")
+        logger.info(f"   File ID: {photo.file_id}")
+        logger.info(f"   Размер: {photo.width}x{photo.height}")
+        logger.info(f"   Размер файла: {photo.file_size} байт")
+        logger.info(f"   🔗 HTTP URL: {value}")
     elif field == "image" and message.photo:
         # Для кейсов
         photo = message.photo[-1]
-        value = f"tg://photo/{photo.file_id}"
-        logger.info(f"Получено изображение: {value}")
+        # Скачиваем и сохраняем фото
+        value = await download_and_save_photo(message.bot, photo.file_id)
+        logger.info(f"🖼️ ИЗОБРАЖЕНИЕ ОБРАБОТАНО для обновления {entity_type}/{entity_id}:")
+        logger.info(f"   File ID: {photo.file_id}")
+        logger.info(f"   Размер: {photo.width}x{photo.height}")
+        logger.info(f"   Размер файла: {photo.file_size} байт")
+        logger.info(f"   🔗 HTTP URL: {value}")
     elif message.text:
         value = message.text
         # Если пользователь ввел "-" для фото, устанавливаем None
         if field in ["photo", "image"] and value == "-":
             value = None
+            logger.info(f"📷 Фото/изображение удалено для {entity_type}/{entity_id}")
+        elif field in ["photo", "image"]:
+            logger.info(f"📷 URL фото/изображения получен для {entity_type}/{entity_id}: {value}")
     else:
         await message.answer("❌ Отправьте текст или фото")
         return

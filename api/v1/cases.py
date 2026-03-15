@@ -28,9 +28,9 @@ class CaseController(Controller):
         return CaseResponse.model_validate(case)
 
     @get("/", summary="Получить список кейсов", description="Получение всех видимых кейсов (is_hidden=false). **Требуется API ключ**")
-    async def get_cases(self, case_service: CaseService) -> list[CaseResponse]:
-        logger.info("GET /api/v1/cases")
-        cases = await case_service.get_all(include_hidden=False)
+    async def get_cases(self, case_service: CaseService = Dependency(), include_hidden: bool = Parameter(default=False, query="include_hidden")) -> list[CaseResponse]:
+        logger.info(f"GET /api/v1/cases?include_hidden={include_hidden}")
+        cases = await case_service.get_all(include_hidden=include_hidden)
         return [CaseResponse.model_validate(c) for c in cases]
 
     @get("/fresh", summary="Получить свежие кейсы", description="Получение кейсов с флагом is_fresh=true. **Требуется API ключ**")

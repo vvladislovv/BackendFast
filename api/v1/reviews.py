@@ -28,9 +28,9 @@ class ReviewController(Controller):
         return ReviewResponse.model_validate(review)
 
     @get("/", summary="Получить список отзывов", description="Получение всех видимых отзывов (is_hidden=false). **Требуется API ключ**")
-    async def get_reviews(self, review_service: ReviewService) -> list[ReviewResponse]:
-        logger.info("GET /api/v1/reviews")
-        reviews = await review_service.get_all(include_hidden=False)
+    async def get_reviews(self, review_service: ReviewService = Dependency(), include_hidden: bool = Parameter(default=False, query="include_hidden")) -> list[ReviewResponse]:
+        logger.info(f"GET /api/v1/reviews?include_hidden={include_hidden}")
+        reviews = await review_service.get_all(include_hidden=include_hidden)
         return [ReviewResponse.model_validate(r) for r in reviews]
 
     @get("/{review_id:int}", summary="Получить отзыв", description="Получение отзыва по ID. **Параметр пути:** review_id (целое число). **Требуется API ключ**")
