@@ -1,4 +1,4 @@
-.PHONY: help install run test clean docker-up docker-down migrate
+.PHONY: help install run test clean docker-up docker-down migrate backup restore list-backups clear-db
 
 help:
 	@echo "Доступные команды:"
@@ -11,6 +11,10 @@ help:
 	@echo "  make docker-up    - Запустить через Docker (полный стек)"
 	@echo "  make docker-dev   - Запустить только БД для разработки"
 	@echo "  make docker-down  - Остановить Docker контейнеры"
+	@echo "  make backup       - Создать бэкап базы данных"
+	@echo "  make restore      - Восстановить БД из последнего бэкапа"
+	@echo "  make list-backups - Показать список всех бэкапов"
+	@echo "  make clear-db     - Очистить базу данных (удалить все данные)"
 	@echo "  make clean        - Очистить временные файлы"
 	@echo "  make logs         - Показать логи"
 
@@ -69,3 +73,18 @@ format:
 lint:
 	flake8 .
 	mypy .
+
+backup:
+	@echo "📦 Создание бэкапа базы данных..."
+	@export PATH="/opt/homebrew/opt/postgresql@16/bin:$$PATH" && python3 scripts/backup_db.py
+
+restore:
+	@echo "♻️  Восстановление базы данных из последнего бэкапа..."
+	@export PATH="/opt/homebrew/opt/postgresql@16/bin:$$PATH" && python3 scripts/restore_db.py
+
+list-backups:
+	@python3 scripts/list_backups.py
+
+clear-db:
+	@echo "🗑️  Очистка базы данных..."
+	@export PATH="/opt/homebrew/opt/postgresql@16/bin:$$PATH" && python3 scripts/clear_db.py

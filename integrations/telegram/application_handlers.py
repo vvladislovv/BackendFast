@@ -72,9 +72,18 @@ async def handle_applications_list_callback(callback: CallbackQuery):
                 text += f"  ... и еще {len(processed_apps) - 3}\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard("main"))
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            await callback.message.edit_text("❌ Раздел не найден", reply_markup=get_back_keyboard("main"))
+        elif e.response.status_code == 400:
+            await callback.message.edit_text("❌ Некорректный запрос", reply_markup=get_back_keyboard("main"))
+        else:
+            await callback.message.edit_text(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("main"))
+    except httpx.TimeoutException:
+        await callback.message.edit_text("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("main"))
     except Exception as e:
         logger.error(f"Ошибка получения заявок: {e}")
-        await callback.message.edit_text(f"❌ Ошибка: {str(e)}", reply_markup=get_back_keyboard("main"))
+        await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("main"))
     await callback.answer()
 
 
@@ -114,9 +123,18 @@ async def handle_applications_new_callback(callback: CallbackQuery):
             text += f"📅 {app['created_at'][:10]}\n\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard("main"))
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            await callback.message.edit_text("❌ Раздел не найден", reply_markup=get_back_keyboard("main"))
+        elif e.response.status_code == 400:
+            await callback.message.edit_text("❌ Некорректный запрос", reply_markup=get_back_keyboard("main"))
+        else:
+            await callback.message.edit_text(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("main"))
+    except httpx.TimeoutException:
+        await callback.message.edit_text("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("main"))
     except Exception as e:
         logger.error(f"Ошибка получения новых заявок: {e}")
-        await callback.message.edit_text(f"❌ Ошибка: {str(e)}", reply_markup=get_back_keyboard("main"))
+        await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("main"))
     await callback.answer()
 
 
@@ -188,9 +206,18 @@ async def process_application_status(message: Message, state: FSMContext):
             f"📧 {result['email']}",
             reply_markup=get_back_keyboard("main")
         )
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            await message.answer(f"❌ Заявка с ID {app_id} не найдена", reply_markup=get_back_keyboard("main"))
+        elif e.response.status_code == 400:
+            await message.answer("❌ Некорректный запрос", reply_markup=get_back_keyboard("main"))
+        else:
+            await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("main"))
+    except httpx.TimeoutException:
+        await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("main"))
     except Exception as e:
         logger.error(f"Ошибка изменения статуса: {e}")
-        await message.answer(f"❌ Ошибка: {str(e)}", reply_markup=get_back_keyboard("main"))
+        await message.answer("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("main"))
     
     await state.clear()
 

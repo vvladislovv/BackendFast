@@ -6,7 +6,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from integrations.telegram.admin_check import admin_only
-from integrations.telegram.keyboards import get_back_keyboard
+from integrations.telegram.keyboards import (
+    get_back_keyboard,
+    get_review_fields_keyboard,
+    get_vacancy_fields_keyboard,
+    get_article_fields_keyboard,
+    get_case_fields_keyboard,
+    get_stars_keyboard
+)
 from utils.logger import get_logger
 
 logger = get_logger()
@@ -47,7 +54,7 @@ class UpdateCaseForm(StatesGroup):
 
 
 async def handle_update_callback(callback: CallbackQuery, state: FSMContext):
-    """Начало обновления записи."""
+    """Начало обновления записи - запрос ID."""
     entity_type = callback.data.replace("_update", "")
     await state.update_data(entity_type=entity_type)
     
@@ -69,7 +76,7 @@ async def handle_update_callback(callback: CallbackQuery, state: FSMContext):
 
 
 async def process_update_id(message: Message, state: FSMContext):
-    """Запрос поля для обновления."""
+    """Показ кнопок выбора поля для обновления."""
     if not await admin_only(message):
         return
     
@@ -91,66 +98,240 @@ async def process_update_id(message: Message, state: FSMContext):
                 timeout=10.0
             )
             response.raise_for_status()
+            entity_data = response.json()
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             await message.answer(f"❌ Запись с ID {entity_id} не найдена", reply_markup=get_back_keyboard(entity_type))
-            await state.clear()
-            return
-    
-    await state.update_data(entity_id=entity_id)
-    
-    # Переходим к выбору поля
-    if entity_type == "vacancies":
-        await state.set_state(UpdateVacancyForm.field)
-        fields_text = "title - название\nurl - ссылка\nemployment_type - тип занятости\ndescription - описание"
-    elif entity_type == "reviews":
-        await state.set_state(UpdateReviewForm.field)
-        fields_text = "name - имя\ncompany - компания\nreview - текст отзыва\nstars - звезды (1-5)\nphoto - фото"
-    elif entity_type == "articles":
-        await state.set_state(UpdateArticleForm.field)
-        fields_text = "title - название\nurl - ссылка\nphoto - фото"
-    elif entity_type == "cases":
-        await state.set_state(UpdateCaseForm.field)
-        fields_text = "name - название\nabout - описание\ntags - теги (через запятую)\nimage - изображение"
-    
-    await message.answer(
-        f"Выберите поле для обновления:\n\n{fields_text}\n\nВведите название поля:"
-    )
-
-
-async def process_update_field(message: Message, state: FSMContext):
-    """Запрос нового значения."""
-    if not await admin_only(message):
+        elif e.response.status_code == 400:
+            await message.answer(f"❌ Некорректный ID {entity_id}", reply_markup=get_back_keyboard(entity_type))
+        else:
+            await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard(entity_type))
+        await state.clear()
+        return
+    except httpx.TimeoutException:
+        await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
+        await state.clear()
+        return
+    except Exception as e:
+        logger.error(f"Ошибка проверки записи: {e}")
+        await message.answer("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
+        await state.clear()
         return
     
-    field = message.text.strip().lower()
-    data = await state.get_data()
-    entity_type = data["entity_type"]
+    await state.clear()
     
-    # Валидация поля
-    valid_fields = {
-        "vacancies": ["title", "url", "employment_type", "description"],
-        "reviews": ["name", "company", "review", "stars", "photo"],
-        "articles": ["title", "url", "photo"],
-        "cases": ["name", "about", "tags", "image"]
+    # Показываем кнопки выбора поля
+    if entity_type == "reviews":
+        text = f"✏️ <b>Редактирование отзыва #{entity_id}</b>\n\n"
+        text += f"👤 Имя: {entity_data.get('name', 'N/A')}\n"
+        text += f"🏢 Компания: {entity_data.get('company', 'N/A')}\n"
+        text += f"📝 Отзыв: {entity_data.get('review', 'N/A')[:50]}...\n"
+        text += f"⭐ Звезды: {entity_data.get('stars', 'N/A')}\n"
+        text += f"📷 Фото: {entity_data.get('photo', 'Нет')}\n\n"
+        text += "Выберите поле для изменения:"
+        await message.answer(text, parse_mode="HTML", reply_markup=get_review_fields_keyboard(entity_id))
+    elif entity_type == "vacancies":
+        text = f"✏️ <b>Редактирование вакансии #{entity_id}</b>\n\n"
+        text += f"📌 Название: {entity_data.get('title', 'N/A')}\n"
+        text += f"🔗 Ссылка: {entity_data.get('url', 'N/A')}\n"
+        text += f"💼 Тип: {entity_data.get('employment_type', 'N/A')}\n"
+        text += f"📄 Описание: {entity_data.get('description', 'N/A')[:50]}...\n\n"
+        text += "Выберите поле для изменения:"
+        await message.answer(text, parse_mode="HTML", reply_markup=get_vacancy_fields_keyboard(entity_id))
+    elif entity_type == "articles":
+        text = f"✏️ <b>Редактирование статьи #{entity_id}</b>\n\n"
+        text += f"📌 Название: {entity_data.get('title', 'N/A')}\n"
+        text += f"🔗 Ссылка: {entity_data.get('url', 'N/A')}\n"
+        text += f"📷 Фото: {entity_data.get('photo', 'Нет')}\n\n"
+        text += "Выберите поле для изменения:"
+        await message.answer(text, parse_mode="HTML", reply_markup=get_article_fields_keyboard(entity_id))
+    elif entity_type == "cases":
+        text = f"✏️ <b>Редактирование кейса #{entity_id}</b>\n\n"
+        text += f"📌 Название: {entity_data.get('name', 'N/A')}\n"
+        text += f"📄 Описание: {entity_data.get('about', 'N/A')[:50]}...\n"
+        text += f"🏷️ Теги: {', '.join(entity_data.get('tags', []))}\n"
+        text += f"🖼️ Изображение: {entity_data.get('image', 'Нет')}\n\n"
+        text += "Выберите поле для изменения:"
+        await message.answer(text, parse_mode="HTML", reply_markup=get_case_fields_keyboard(entity_id))
+
+
+async def handle_field_edit_callback(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора поля для редактирования через кнопку."""
+    if not await admin_only(callback):
+        await callback.answer()
+        return
+    
+    # Формат: {entity}_edit_{id}_{field}
+    parts = callback.data.split("_")
+    
+    logger.info(f"handle_field_edit_callback: callback_data={callback.data}, parts={parts}")
+    
+    if len(parts) == 4:  # review_edit_1_name
+        entity_type = parts[0] + "s"  # review -> reviews
+        entity_id = int(parts[2])
+        field = parts[3]
+    else:
+        await callback.answer("❌ Ошибка формата данных")
+        return
+    
+    logger.info(f"Редактирование: entity_type={entity_type}, entity_id={entity_id}, field={field}")
+    
+    # Для звезд показываем специальную клавиатуру
+    if field == "stars":
+        await callback.message.edit_text(
+            f"⭐ Выберите количество звезд:",
+            reply_markup=get_stars_keyboard(entity_id)
+        )
+        await callback.answer()
+        return
+    
+    # Для остальных полей запрашиваем ввод
+    field_names = {
+        "name": "👤 Имя",
+        "company": "🏢 Компания",
+        "review": "📝 Текст отзыва",
+        "photo": "📷 Фото (URL)",
+        "title": "📌 Название",
+        "url": "🔗 Ссылка",
+        "employment_type": "💼 Тип занятости",
+        "description": "📄 Описание",
+        "about": "📄 Описание",
+        "tags": "🏷️ Теги (через запятую)",
+        "image": "🖼️ Изображение (URL)"
     }
     
-    if field not in valid_fields.get(entity_type, []):
-        await message.answer(f"❌ Неверное поле. Доступные поля: {', '.join(valid_fields[entity_type])}")
-        return
+    await state.update_data(entity_type=entity_type, entity_id=entity_id, field=field)
     
-    await state.update_data(field=field)
+    # Проверяем, что данные сохранились
+    saved_data = await state.get_data()
+    logger.info(f"Данные сохранены в state: {saved_data}")
     
-    if entity_type == "vacancies":
-        await state.set_state(UpdateVacancyForm.value)
-    elif entity_type == "reviews":
+    if entity_type == "reviews":
         await state.set_state(UpdateReviewForm.value)
+    elif entity_type == "vacancies":
+        await state.set_state(UpdateVacancyForm.value)
     elif entity_type == "articles":
         await state.set_state(UpdateArticleForm.value)
     elif entity_type == "cases":
         await state.set_state(UpdateCaseForm.value)
     
-    await message.answer(f"Введите новое значение для поля '{field}':")
+    current_state = await state.get_state()
+    logger.info(f"Установлено состояние FSM: {current_state}")
+    
+    await callback.message.edit_text(
+        f"✏️ Введите новое значение для поля {field_names.get(field, field)}:\n\n" +
+        ("📷 Вы можете отправить фото или ввести URL\nВведите '-' чтобы удалить фото" if field in ["photo", "image"] else "")
+    )
+    await callback.answer()
+
+
+async def handle_update_stars_selection(callback: CallbackQuery):
+    """Обработка выбора количества звезд при редактировании."""
+    if not await admin_only(callback):
+        await callback.answer()
+        return
+    
+    # Формат: review_stars_{id}_{stars}
+    parts = callback.data.split("_")
+    entity_id = int(parts[2])
+    stars = int(parts[3])
+    
+    logger.info(f"Обновление звезд: entity_id={entity_id}, stars={stars}")
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{API_URL}/api/v1/reviews/{entity_id}",
+                json={"stars": stars},
+                headers=HEADERS,
+                timeout=10.0
+            )
+            response.raise_for_status()
+            result = response.json()
+        
+        logger.info(f"Звезды успешно обновлены: {result}")
+        await callback.message.edit_text(
+            f"✅ Количество звезд обновлено на {stars}!",
+            reply_markup=get_back_keyboard("reviews")
+        )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP ошибка при обновлении звезд: {e.response.status_code}")
+        if e.response.status_code == 404:
+            await callback.message.edit_text(
+                f"❌ Отзыв с ID {entity_id} не найден",
+                reply_markup=get_back_keyboard("reviews")
+            )
+        elif e.response.status_code == 400:
+            await callback.message.edit_text(
+                "❌ Некорректные данные",
+                reply_markup=get_back_keyboard("reviews")
+            )
+        elif e.response.status_code == 422:
+            await callback.message.edit_text(
+                "❌ Ошибка валидации данных",
+                reply_markup=get_back_keyboard("reviews")
+            )
+        else:
+            await callback.message.edit_text(
+                f"❌ Ошибка сервера (код {e.response.status_code})",
+                reply_markup=get_back_keyboard("reviews")
+            )
+    except httpx.TimeoutException:
+        logger.error("Timeout при обновлении звезд")
+        await callback.message.edit_text(
+            "❌ Превышено время ожидания. Попробуйте позже",
+            reply_markup=get_back_keyboard("reviews")
+        )
+    except Exception as e:
+        logger.error(f"Ошибка обновления звезд: {e}", exc_info=True)
+        await callback.message.edit_text(
+            "❌ Произошла ошибка. Попробуйте позже",
+            reply_markup=get_back_keyboard("reviews")
+        )
+    
+    await callback.answer()
+
+
+async def handle_edit_back_callback(callback: CallbackQuery):
+    """Возврат к выбору поля."""
+    if not await admin_only(callback):
+        await callback.answer()
+        return
+    
+    # Формат: review_edit_back_{id}
+    parts = callback.data.split("_")
+    entity_id = int(parts[3])
+    entity_type = parts[0] + "s"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{API_URL}/api/v1/{entity_type}/{entity_id}",
+                headers=HEADERS,
+                timeout=10.0
+            )
+            response.raise_for_status()
+            entity_data = response.json()
+    except Exception as e:
+        logger.error(f"Ошибка получения данных: {e}")
+        await callback.message.edit_text(
+            "❌ Ошибка получения данных",
+            reply_markup=get_back_keyboard(entity_type)
+        )
+        await callback.answer()
+        return
+    
+    if entity_type == "reviews":
+        text = f"✏️ <b>Редактирование отзыва #{entity_id}</b>\n\n"
+        text += f"👤 Имя: {entity_data.get('name', 'N/A')}\n"
+        text += f"🏢 Компания: {entity_data.get('company', 'N/A')}\n"
+        text += f"📝 Отзыв: {entity_data.get('review', 'N/A')[:50]}...\n"
+        text += f"⭐ Звезды: {entity_data.get('stars', 'N/A')}\n"
+        text += f"📷 Фото: {entity_data.get('photo', 'Нет')}\n\n"
+        text += "Выберите поле для изменения:"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_review_fields_keyboard(entity_id))
+    
+    await callback.answer()
 
 
 async def process_update_value(message: Message, state: FSMContext):
@@ -159,10 +340,39 @@ async def process_update_value(message: Message, state: FSMContext):
         return
     
     data = await state.get_data()
+    
+    # Проверяем наличие необходимых данных
+    if not data or "entity_type" not in data or "entity_id" not in data or "field" not in data:
+        logger.error(f"Отсутствуют данные в state: {data}")
+        await message.answer("❌ Ошибка: данные не найдены. Попробуйте снова начать редактирование.")
+        await state.clear()
+        return
+    
     entity_type = data["entity_type"]
     entity_id = data["entity_id"]
     field = data["field"]
-    value = message.text
+    
+    # Обработка фото
+    if field == "photo" and message.photo:
+        # Если отправлено фото, берем самое большое
+        photo = message.photo[-1]
+        value = f"tg://photo/{photo.file_id}"
+        logger.info(f"Получено фото: {value}")
+    elif field == "image" and message.photo:
+        # Для кейсов
+        photo = message.photo[-1]
+        value = f"tg://photo/{photo.file_id}"
+        logger.info(f"Получено изображение: {value}")
+    elif message.text:
+        value = message.text
+        # Если пользователь ввел "-" для фото, устанавливаем None
+        if field in ["photo", "image"] and value == "-":
+            value = None
+    else:
+        await message.answer("❌ Отправьте текст или фото")
+        return
+    
+    logger.info(f"Обновление {entity_type}/{entity_id}, поле {field}, значение: {value}")
     
     # Специальная обработка для некоторых полей
     if field == "stars":
@@ -180,6 +390,8 @@ async def process_update_value(message: Message, state: FSMContext):
     # Формируем payload
     payload = {field: value}
     
+    logger.info(f"Отправка PUT запроса: {API_URL}/api/v1/{entity_type}/{entity_id}, payload: {payload}")
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.put(
@@ -191,13 +403,30 @@ async def process_update_value(message: Message, state: FSMContext):
             response.raise_for_status()
             result = response.json()
         
-        await message.answer(
-            f"✅ Запись обновлена!\n\nID: {result['id']}\nПоле '{field}' обновлено",
-            reply_markup=get_back_keyboard(entity_type)
-        )
+        logger.info(f"Успешно обновлено: {result}")
+        
+        # Формируем сообщение об успехе
+        success_msg = f"✅ Запись обновлена!\n\nID: {result['id']}\nПоле '{field}' обновлено"
+        if field in ["photo", "image"] and value:
+            success_msg += f"\n\n{'📷 Фото' if field == 'photo' else '🖼️ Изображение'} добавлено!"
+        
+        await message.answer(success_msg, reply_markup=get_back_keyboard(entity_type))
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP ошибка при обновлении: {e.response.status_code}, {e.response.text}")
+        if e.response.status_code == 404:
+            await message.answer(f"❌ Запись с ID {entity_id} не найдена", reply_markup=get_back_keyboard(entity_type))
+        elif e.response.status_code == 400:
+            await message.answer("❌ Некорректные данные. Проверьте введенную информацию", reply_markup=get_back_keyboard(entity_type))
+        elif e.response.status_code == 422:
+            await message.answer("❌ Ошибка валидации данных", reply_markup=get_back_keyboard(entity_type))
+        else:
+            await message.answer(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard(entity_type))
+    except httpx.TimeoutException:
+        logger.error("Timeout при обновлении")
+        await message.answer("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     except Exception as e:
-        logger.error(f"Ошибка обновления: {e}")
-        await message.answer(f"❌ Ошибка: {str(e)}", reply_markup=get_back_keyboard(entity_type))
+        logger.error(f"Ошибка обновления: {e}", exc_info=True)
+        await message.answer("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     
     await state.clear()
 

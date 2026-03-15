@@ -1,11 +1,11 @@
 """API endpoints для кейсов."""
 from litestar import Controller, get, post, put, delete, patch
 from litestar.di import Provide
-from litestar.params import Dependency
+from litestar.params import Dependency, Parameter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db_session
-from schemas.case import CaseCreate, CaseUpdate, CaseResponse, CaseHideUpdate, CaseRatingUpdate, CaseFreshUpdate
+from schemas.case import CaseCreate, CaseUpdate, CaseResponse, CaseHideUpdate, CaseFreshUpdate
 from services.case_service import CaseService
 from utils.logger import get_logger
 
@@ -63,10 +63,10 @@ class CaseController(Controller):
         case = await case_service.toggle_hidden(case_id, data.is_hidden)
         return CaseResponse.model_validate(case)
 
-    @patch("/{case_id:int}/rating", summary="Обновить рейтинг", description="Изменение рейтинга кейса. **Параметр пути:** case_id. **Параметр (JSON):** rating (целое число). **Требуется API ключ**")
-    async def update_case_rating(self, case_id: int, data: CaseRatingUpdate, case_service: CaseService) -> CaseResponse:
-        logger.info(f"PATCH /api/v1/cases/{case_id}/rating")
-        case = await case_service.update_rating(case_id, data.rating)
+    @patch("/{case_id:int}/rating", summary="Обновить рейтинг", description="Изменение рейтинга кейса. **Параметр пути:** case_id. **Параметр query:** rating (целое число >= 0). **Пример:** PATCH /api/v1/cases/5/rating?rating=100. **Требуется API ключ**")
+    async def update_case_rating(self, case_id: int, rating: int = Parameter(ge=0, query="rating"), case_service: CaseService = Dependency()) -> CaseResponse:
+        logger.info(f"PATCH /api/v1/cases/{case_id}/rating?rating={rating}")
+        case = await case_service.update_rating(case_id, rating)
         return CaseResponse.model_validate(case)
 
     @patch("/{case_id:int}/fresh", summary="Пометить как свежий", description="Изменение флага свежести. **Параметр пути:** case_id. **Параметр (JSON):** is_fresh (true/false). **Требуется API ключ**")

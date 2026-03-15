@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from integrations.telegram.admin_check import admin_only
 from integrations.telegram.keyboards import (
     get_main_menu, get_entity_menu, get_cases_menu, 
-    get_applications_menu, get_back_keyboard
+    get_applications_menu, get_back_keyboard, get_pagination_keyboard
 )
 from integrations.telegram import create_handlers, update_handlers, action_handlers, application_handlers
 from utils.logger import get_logger
@@ -155,7 +155,18 @@ async def handle_menu_help(callback: CallbackQuery):
 
 # Обработчики callback для списков
 async def handle_list_callback(callback: CallbackQuery):
-    entity_type = callback.data.replace("_list", "")
+    """Обработка просмотра списка с пагинацией."""
+    # Проверяем, есть ли номер страницы в callback_data
+    if "_page_" in callback.data:
+        parts = callback.data.split("_page_")
+        entity_type = parts[0]
+        page = int(parts[1])
+    else:
+        entity_type = callback.data.replace("_list", "")
+        page = 1
+    
+    items_per_page = 7  # Показываем 7 элементов на странице
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{API_URL}/api/v1/{entity_type}", headers=HEADERS, timeout=10.0)
@@ -164,26 +175,151 @@ async def handle_list_callback(callback: CallbackQuery):
         
         if not items:
             await callback.message.edit_text("📭 Список пуст", reply_markup=get_back_keyboard(entity_type))
+            await callback.answer()
             return
         
-        text = f"📋 <b>Список ({len(items)} шт.)</b>\n\n"
-        for item in items[:10]:
+        # Вычисляем пагинацию
+        total_items = len(items)
+        total_pages = (total_items + items_per_page - 1) // items_per_page  # Округление вверх
+        start_idx = (page - 1) * items_per_page
+        end_idx = min(start_idx + items_per_page, total_items)
+        page_items = items[start_idx:end_idx]
+        
+        text = f"📋 <b>Список ({total_items} шт.) - Страница {page}/{total_pages}</b>\n\n"
+        
+        for item in page_items:
             if entity_type == "vacancies":
-                text += f"🔹 <b>{item['title']}</b>\n   ID: {item['id']} | Рейтинг: {item['rating']}\n   {item['employment_type']}\n\n"
+                hidden = "🔒 Скрыто" if item.get('is_hidden') else "👁 Видно"
+                desc = item.get('description') or 'Нет описания'
+                desc_short = (desc[:100] + '...') if desc and len(desc) > 100 else desc
+                text += f"🔹 <b>{item['title']}</b>\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | {hidden}\n"
+                text += f"   Тип: {item['employment_type']}\n"
+                text += f"   URL: {item['url']}\n"
+                text += f"   Описание: {desc_short}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
             elif entity_type == "reviews":
-                text += f"🔹 <b>{item['name']}</b> ({item['company']})\n   ID: {item['id']} | {'⭐' * item['stars']}\n   Рейтинг: {item['rating']}\n\n"
+                hidden = "🔒 Скрыто" if item.get('is_hidden') else "👁 Видно"
+                review_text = item.get('review') or ''
+                review_short = (review_text[:100] + '...') if review_text and len(review_text) > 100 else review_text
+                text += f"🔹 <b>{item['name']}</b> ({item['company']})\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | Звезды: {'⭐' * item['stars']} | {hidden}\n"
+                text += f"   Отзыв: {review_short}\n"
+                text += f"   Фото: {'✅ Есть' if item.get('photo') else '❌ Нет'}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
             elif entity_type == "articles":
-                text += f"🔹 <b>{item['title']}</b>\n   ID: {item['id']} | Рейтинг: {item['rating']}\n\n"
+                hidden = "🔒 Скрыто" if item.get('is_hidden') else "👁 Видно"
+                text += f"🔹 <b>{item['title']}</b>\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | {hidden}\n"
+                text += f"   URL: {item['url']}\n"
+                text += f"   Фото: {'✅ Есть' if item.get('photo') else '❌ Нет'}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
             elif entity_type == "cases":
-                text += f"🔹 <b>{item['name']}</b>\n   ID: {item['id']} | Рейтинг: {item['rating']}\n   {'🆕 Свежий' if item.get('is_fresh') else ''}\n\n"
+                hidden = "🔒 Скрыто" if item.get('is_hidden') else "👁 Видно"
+                fresh = "🆕 Свежий" if item.get('is_fresh') else ""
+                about_text = item.get('about') or ''
+                about_short = (about_text[:100] + '...') if about_text and len(about_text) > 100 else about_text
+                text += f"🔹 <b>{item['name']}</b> {fresh}\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | {hidden}\n"
+                text += f"   Описание: {about_short}\n"
+                text += f"   Теги: {', '.join(item.get('tags', []))}\n"
+                text += f"   Изображение: {item.get('image', 'Нет')}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
         
-        if len(items) > 10:
-            text += f"\n... и еще {len(items) - 10} записей"
+        # Используем пагинацию если больше 7 элементов
+        if total_pages > 1:
+            keyboard = get_pagination_keyboard(entity_type, page, total_pages)
+        else:
+            keyboard = get_back_keyboard(entity_type)
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard(entity_type))
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            await callback.message.edit_text("❌ Раздел не найден", reply_markup=get_back_keyboard(entity_type))
+        elif e.response.status_code == 400:
+            await callback.message.edit_text("❌ Некорректный запрос", reply_markup=get_back_keyboard(entity_type))
+        else:
+            await callback.message.edit_text(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard(entity_type))
+    except httpx.TimeoutException:
+        await callback.message.edit_text("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     except Exception as e:
         logger.error(f"Ошибка получения списка {entity_type}: {e}")
-        await callback.message.edit_text(f"❌ Ошибка: {str(e)}", reply_markup=get_back_keyboard(entity_type))
+        await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
+    await callback.answer()
+
+
+async def handle_hidden_callback(callback: CallbackQuery):
+    """Обработка просмотра скрытых элементов."""
+    entity_type = callback.data.replace("_hidden", "")
+    
+    try:
+        # Получаем все элементы
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{API_URL}/api/v1/{entity_type}", headers=HEADERS, timeout=10.0)
+            response.raise_for_status()
+            all_items = response.json()
+        
+        # Фильтруем только скрытые
+        hidden_items = [item for item in all_items if item.get('is_hidden', False)]
+        
+        if not hidden_items:
+            await callback.message.edit_text("📭 Нет скрытых элементов", reply_markup=get_back_keyboard(entity_type))
+            await callback.answer()
+            return
+        
+        text = f"🔒 <b>Скрытые элементы ({len(hidden_items)} шт.)</b>\n\n"
+        
+        for item in hidden_items[:10]:  # Показываем первые 10
+            if entity_type == "vacancies":
+                desc = item.get('description') or 'Нет описания'
+                desc_short = (desc[:100] + '...') if desc and len(desc) > 100 else desc
+                text += f"🔹 <b>{item['title']}</b> 🔒\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']}\n"
+                text += f"   Тип: {item['employment_type']}\n"
+                text += f"   URL: {item['url']}\n"
+                text += f"   Описание: {desc_short}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
+            elif entity_type == "reviews":
+                review_text = item.get('review') or ''
+                review_short = (review_text[:100] + '...') if review_text and len(review_text) > 100 else review_text
+                text += f"🔹 <b>{item['name']}</b> ({item['company']}) 🔒\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | Звезды: {'⭐' * item['stars']}\n"
+                text += f"   Отзыв: {review_short}\n"
+                text += f"   Фото: {'✅ Есть' if item.get('photo') else '❌ Нет'}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
+            elif entity_type == "articles":
+                text += f"🔹 <b>{item['title']}</b> 🔒\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']}\n"
+                text += f"   URL: {item['url']}\n"
+                text += f"   Фото: {'✅ Есть' if item.get('photo') else '❌ Нет'}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
+            elif entity_type == "cases":
+                fresh = "🆕 Свежий" if item.get('is_fresh') else ""
+                about_text = item.get('about') or ''
+                about_short = (about_text[:100] + '...') if about_text and len(about_text) > 100 else about_text
+                text += f"🔹 <b>{item['name']}</b> {fresh} 🔒\n"
+                text += f"   ID: {item['id']} | Рейтинг: {item['rating']}\n"
+                text += f"   Описание: {about_short}\n"
+                text += f"   Теги: {', '.join(item.get('tags', []))}\n"
+                text += f"   Изображение: {item.get('image', 'Нет')}\n"
+                text += f"   Создано: {item['created_at'][:10]}\n\n"
+        
+        if len(hidden_items) > 10:
+            text += f"\n... и еще {len(hidden_items) - 10} скрытых записей"
+        
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard(entity_type))
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            await callback.message.edit_text("❌ Раздел не найден", reply_markup=get_back_keyboard(entity_type))
+        elif e.response.status_code == 400:
+            await callback.message.edit_text("❌ Некорректный запрос", reply_markup=get_back_keyboard(entity_type))
+        else:
+            await callback.message.edit_text(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard(entity_type))
+    except httpx.TimeoutException:
+        await callback.message.edit_text("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
+    except Exception as e:
+        logger.error(f"Ошибка получения скрытых {entity_type}: {e}")
+        await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard(entity_type))
     await callback.answer()
 
 
@@ -200,12 +336,29 @@ async def handle_fresh_cases_callback(callback: CallbackQuery):
         
         text = f"🆕 <b>Свежие кейсы ({len(items)} шт.)</b>\n\n"
         for item in items:
-            text += f"🔹 <b>{item['name']}</b>\n   ID: {item['id']} | Рейтинг: {item['rating']}\n   Теги: {', '.join(item['tags'])}\n\n"
+            hidden = "🔒 Скрыто" if item.get('is_hidden') else "👁 Видно"
+            about_text = item.get('about') or ''
+            about_short = (about_text[:100] + '...') if about_text and len(about_text) > 100 else about_text
+            text += f"🔹 <b>{item['name']}</b> 🆕\n"
+            text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | {hidden}\n"
+            text += f"   Описание: {about_short}\n"
+            text += f"   Теги: {', '.join(item.get('tags', []))}\n"
+            text += f"   Изображение: {item.get('image', 'Нет')}\n"
+            text += f"   Создано: {item['created_at'][:10]}\n\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard("cases"))
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            await callback.message.edit_text("❌ Раздел не найден", reply_markup=get_back_keyboard("cases"))
+        elif e.response.status_code == 400:
+            await callback.message.edit_text("❌ Некорректный запрос", reply_markup=get_back_keyboard("cases"))
+        else:
+            await callback.message.edit_text(f"❌ Ошибка сервера (код {e.response.status_code})", reply_markup=get_back_keyboard("cases"))
+    except httpx.TimeoutException:
+        await callback.message.edit_text("❌ Превышено время ожидания. Попробуйте позже", reply_markup=get_back_keyboard("cases"))
     except Exception as e:
         logger.error(f"Ошибка получения свежих кейсов: {e}")
-        await callback.message.edit_text(f"❌ Ошибка: {str(e)}", reply_markup=get_back_keyboard("cases"))
+        await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже", reply_markup=get_back_keyboard("cases"))
     await callback.answer()
 
 
@@ -239,7 +392,6 @@ def register_handlers(dp: Dispatcher, api_url: str):
     
     # Команды
     dp.message.register(cmd_start, Command("start"))
-    dp.message.register(cmd_help, Command("help"))
     
     # Callback для главного меню
     dp.callback_query.register(handle_menu_vacancies, F.data == "menu_vacancies")
@@ -249,8 +401,22 @@ def register_handlers(dp: Dispatcher, api_url: str):
     dp.callback_query.register(handle_menu_applications, F.data == "menu_applications")
     dp.callback_query.register(handle_menu_help, F.data == "menu_help")
     
-    # Callback handlers
+    # Callback handlers для создания отзывов через кнопки (ДОЛЖНЫ БЫТЬ ПЕРЕД ОБЩИМИ!)
+    dp.callback_query.register(create_handlers.handle_name_selection, F.data.startswith("create_name_"))
+    dp.callback_query.register(create_handlers.handle_company_selection, F.data.startswith("create_company_"))
+    dp.callback_query.register(create_handlers.handle_review_template_selection, F.data.startswith("create_review_"))
+    dp.callback_query.register(create_handlers.handle_create_stars_selection, F.data.startswith("create_stars_"))
+    dp.callback_query.register(create_handlers.handle_photo_skip, F.data.startswith("create_photo_"))
+    
+    # Callback handlers для редактирования полей через кнопки (ДОЛЖНЫ БЫТЬ ПЕРЕД ОБЩИМИ!)
+    dp.callback_query.register(update_handlers.handle_update_stars_selection, F.data.startswith("review_stars_"))
+    dp.callback_query.register(update_handlers.handle_edit_back_callback, F.data.contains("_edit_back_"))
+    dp.callback_query.register(update_handlers.handle_field_edit_callback, F.data.contains("_edit_"))
+    
+    # Callback handlers (общие)
     dp.callback_query.register(handle_list_callback, F.data.endswith("_list"))
+    dp.callback_query.register(handle_list_callback, F.data.contains("_page_"))  # Для пагинации
+    dp.callback_query.register(handle_hidden_callback, F.data.endswith("_hidden"))  # Для скрытых элементов
     dp.callback_query.register(handle_fresh_cases_callback, F.data == "cases_fresh")
     dp.callback_query.register(handle_main_menu_callback, F.data == "main_menu")
     dp.callback_query.register(handle_entity_menu_callback, F.data.endswith("_menu"))
@@ -260,6 +426,7 @@ def register_handlers(dp: Dispatcher, api_url: str):
     dp.callback_query.register(action_handlers.handle_hide_callback, F.data.endswith("_hide"))
     dp.callback_query.register(action_handlers.handle_delete_callback, F.data.endswith("_delete"))
     dp.callback_query.register(action_handlers.handle_mark_fresh_callback, F.data == "cases_mark_fresh")
+    dp.callback_query.register(action_handlers.handle_quick_visibility_toggle, F.data.startswith(("hide_", "show_")))  # Быстрое переключение видимости
     dp.callback_query.register(update_handlers.handle_update_callback, F.data.endswith("_update"))
     
     # FSM handlers для создания
@@ -296,11 +463,6 @@ def register_handlers(dp: Dispatcher, api_url: str):
     dp.message.register(update_handlers.process_update_id, update_handlers.UpdateReviewForm.entity_id)
     dp.message.register(update_handlers.process_update_id, update_handlers.UpdateArticleForm.entity_id)
     dp.message.register(update_handlers.process_update_id, update_handlers.UpdateCaseForm.entity_id)
-    
-    dp.message.register(update_handlers.process_update_field, update_handlers.UpdateVacancyForm.field)
-    dp.message.register(update_handlers.process_update_field, update_handlers.UpdateReviewForm.field)
-    dp.message.register(update_handlers.process_update_field, update_handlers.UpdateArticleForm.field)
-    dp.message.register(update_handlers.process_update_field, update_handlers.UpdateCaseForm.field)
     
     dp.message.register(update_handlers.process_update_value, update_handlers.UpdateVacancyForm.value)
     dp.message.register(update_handlers.process_update_value, update_handlers.UpdateReviewForm.value)

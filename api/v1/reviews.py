@@ -1,11 +1,11 @@
 """API endpoints для отзывов."""
 from litestar import Controller, get, post, put, delete, patch
 from litestar.di import Provide
-from litestar.params import Dependency
+from litestar.params import Dependency, Parameter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db_session
-from schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse, ReviewHideUpdate, ReviewRatingUpdate
+from schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse, ReviewHideUpdate
 from services.review_service import ReviewService
 from utils.logger import get_logger
 
@@ -57,8 +57,8 @@ class ReviewController(Controller):
         review = await review_service.toggle_hidden(review_id, data.is_hidden)
         return ReviewResponse.model_validate(review)
 
-    @patch("/{review_id:int}/rating", summary="Обновить рейтинг", description="Изменение рейтинга отзыва. **Параметр пути:** review_id. **Параметр (JSON):** rating (целое число). **Требуется API ключ**")
-    async def update_review_rating(self, review_id: int, data: ReviewRatingUpdate, review_service: ReviewService) -> ReviewResponse:
-        logger.info(f"PATCH /api/v1/reviews/{review_id}/rating")
-        review = await review_service.update_rating(review_id, data.rating)
+    @patch("/{review_id:int}/rating", summary="Обновить рейтинг", description="Изменение рейтинга отзыва. **Параметр пути:** review_id. **Параметр query:** rating (целое число >= 0). **Пример:** PATCH /api/v1/reviews/5/rating?rating=100. **Требуется API ключ**")
+    async def update_review_rating(self, review_id: int, rating: int = Parameter(ge=0, query="rating"), review_service: ReviewService = Dependency()) -> ReviewResponse:
+        logger.info(f"PATCH /api/v1/reviews/{review_id}/rating?rating={rating}")
+        review = await review_service.update_rating(review_id, rating)
         return ReviewResponse.model_validate(review)

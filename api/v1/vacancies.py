@@ -10,7 +10,6 @@ from schemas.vacancy import (
     VacancyUpdate,
     VacancyResponse,
     VacancyHideUpdate,
-    VacancyRatingUpdate,
 )
 from services.vacancy_service import VacancyService
 from utils.logger import get_logger
@@ -205,10 +204,12 @@ class VacancyController(Controller):
         **Параметры пути:**
         - **vacancy_id**: ID вакансии (целое число)
         
-        **Параметры тела запроса (JSON):**
-        - **rating** (обязательно): Новый рейтинг (целое число, по умолчанию 0)
+        **Параметры query:**
+        - **rating** (обязательно): Новый рейтинг (целое число >= 0)
         
         **Требуется API ключ:** X-API-Key: internal-bot-key-2026
+        
+        **Пример:** PATCH /api/v1/vacancies/5/rating?rating=100
         
         **Ответ:** Обновленная вакансия
         """
@@ -216,10 +217,10 @@ class VacancyController(Controller):
     async def update_vacancy_rating(
         self,
         vacancy_id: int,
-        data: VacancyRatingUpdate,
-        vacancy_service: VacancyService,
+        rating: int = Parameter(ge=0, query="rating", description="Новый рейтинг (>= 0)"),
+        vacancy_service: VacancyService = Dependency(),
     ) -> VacancyResponse:
         """Обновить рейтинг вакансии."""
-        logger.info(f"PATCH /api/v1/vacancies/{vacancy_id}/rating")
-        vacancy = await vacancy_service.update_rating(vacancy_id, data.rating)
+        logger.info(f"PATCH /api/v1/vacancies/{vacancy_id}/rating?rating={rating}")
+        vacancy = await vacancy_service.update_rating(vacancy_id, rating)
         return VacancyResponse.model_validate(vacancy)

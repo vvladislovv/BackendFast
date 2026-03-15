@@ -52,3 +52,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 uploads/
+
+# Backups
+backups/
+*.sql

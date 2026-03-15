@@ -1,11 +1,11 @@
 """API endpoints для статей."""
 from litestar import Controller, get, post, put, delete, patch
 from litestar.di import Provide
-from litestar.params import Dependency
+from litestar.params import Dependency, Parameter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db_session
-from schemas.article import ArticleCreate, ArticleUpdate, ArticleResponse, ArticleHideUpdate, ArticleRatingUpdate
+from schemas.article import ArticleCreate, ArticleUpdate, ArticleResponse, ArticleHideUpdate
 from services.article_service import ArticleService
 from utils.logger import get_logger
 
@@ -57,8 +57,8 @@ class ArticleController(Controller):
         article = await article_service.toggle_hidden(article_id, data.is_hidden)
         return ArticleResponse.model_validate(article)
 
-    @patch("/{article_id:int}/rating", summary="Обновить рейтинг", description="Изменение рейтинга статьи. **Параметр пути:** article_id. **Параметр (JSON):** rating (целое число). **Требуется API ключ**")
-    async def update_article_rating(self, article_id: int, data: ArticleRatingUpdate, article_service: ArticleService) -> ArticleResponse:
-        logger.info(f"PATCH /api/v1/articles/{article_id}/rating")
-        article = await article_service.update_rating(article_id, data.rating)
+    @patch("/{article_id:int}/rating", summary="Обновить рейтинг", description="Изменение рейтинга статьи. **Параметр пути:** article_id. **Параметр query:** rating (целое число >= 0). **Пример:** PATCH /api/v1/articles/5/rating?rating=100. **Требуется API ключ**")
+    async def update_article_rating(self, article_id: int, rating: int = Parameter(ge=0, query="rating"), article_service: ArticleService = Dependency()) -> ArticleResponse:
+        logger.info(f"PATCH /api/v1/articles/{article_id}/rating?rating={rating}")
+        article = await article_service.update_rating(article_id, rating)
         return ArticleResponse.model_validate(article)
