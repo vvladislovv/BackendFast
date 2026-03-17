@@ -54,6 +54,19 @@ class APIKeyMiddleware(AbstractMiddleware):
             await self.app(scope, receive, send)
             return
         
+        # Пропускаем основные ручки списков (доступны без API ключа)
+        public_list_endpoints = [
+            "/api/v1/vacancies",
+            "/api/v1/reviews", 
+            "/api/v1/articles",
+            "/api/v1/cases"
+        ]
+        
+        if path in public_list_endpoints and method == "GET":
+            logger.info(f"Пропускаем проверку API ключа для GET {path}")
+            await self.app(scope, receive, send)
+            return
+        
         # Все остальные запросы к /applications требуют API ключ
         if path.startswith("/api/v1/applications"):
             logger.info(f"Проверка API ключа для {method} {path}")

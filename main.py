@@ -61,6 +61,25 @@ async def startup() -> None:
             app.openapi_schema.security = []
         app.openapi_schema.security.append({"APIKeyHeader": []})
         
+        # Убираем требование API ключа для публичных endpoints
+        public_endpoints = [
+            ('/api/v1/vacancies', 'get'),
+            ('/api/v1/reviews', 'get'),
+            ('/api/v1/articles', 'get'),
+            ('/api/v1/cases', 'get'),
+            ('/api/v1/applications', 'post'),
+        ]
+        
+        if hasattr(app.openapi_schema, 'paths'):
+            for path, method in public_endpoints:
+                if path in app.openapi_schema.paths:
+                    path_item = app.openapi_schema.paths[path]
+                    if hasattr(path_item, method):
+                        operation = getattr(path_item, method)
+                        # Убираем security requirement для этого endpoint
+                        operation.security = []
+                        logger.info(f"Убрано требование API ключа для {method.upper()} {path}")
+        
         # Кастомизируем схему для POST /api/v1/applications
         if hasattr(app.openapi_schema, 'paths') and '/api/v1/applications' in app.openapi_schema.paths:
             applications_path = app.openapi_schema.paths['/api/v1/applications']
@@ -184,8 +203,18 @@ app = Litestar(
         
         Используйте кнопку **Authorize** справа вверху, чтобы ввести API ключ один раз для всех запросов.
         
-        ## Эндпоинты без API ключа
+        ## 🔓 Эндпоинты БЕЗ API ключа (публичные)
+        - `GET /api/v1/vacancies` - получить список вакансий
+        - `GET /api/v1/reviews` - получить список отзывов
+        - `GET /api/v1/articles` - получить список статей
+        - `GET /api/v1/cases` - получить список кейсов
         - `POST /api/v1/applications` - создание заявки (доступно с фронтенда)
+        
+        ## 🔒 Эндпоинты С API ключом (защищенные)
+        Все остальные операции требуют API ключ:
+        - Создание, обновление, удаление записей
+        - Получение отдельных записей по ID
+        - Изменение рейтинга и видимости
         
         ## Основные сущности
         - **Vacancies** - вакансии компании
