@@ -224,7 +224,8 @@ async def handle_field_edit_callback(callback: CallbackQuery, state: FSMContext)
     
     await callback.message.edit_text(
         f"✏️ Введите новое значение для поля {field_names.get(field, field)}:\n\n" +
-        ("📷 Вы можете отправить фото или ввести URL\nВведите '-' чтобы удалить фото" if field in ["photo", "image"] else "")
+        ("📷 Вы можете отправить фото или ввести URL\nВведите '-' чтобы удалить фото" if field in ["photo", "image"] else "") +
+        ("📄 Вы можете отправить .md файл или ввести текст вручную" if field == "content" else "")
     )
     await callback.answer()
 
@@ -356,8 +357,20 @@ async def process_update_value(message: Message, state: FSMContext):
     entity_id = data["entity_id"]
     field = data["field"]
     
+    # Обработка MD файла для контента статьи
+    if field == "content" and message.document and message.document.file_name and message.document.file_name.endswith('.md'):
+        try:
+            # Скачиваем MD файл
+            file = await message.bot.get_file(message.document.file_id)
+            file_content = await message.bot.download_file(file.file_path)
+            value = file_content.read().decode('utf-8')
+            logger.info(f"📄 MD файл загружен для обновления: {message.document.file_name}, размер: {len(value)} символов")
+        except Exception as e:
+            logger.error(f"Ошибка загрузки MD файла: {e}")
+            await message.answer("❌ Ошибка загрузки MD файла. Попробуйте снова")
+            return
     # Обработка фото
-    if field == "photo" and message.photo:
+    elif field == "photo" and message.photo:
         # Если отправлено фото, берем самое большое
         photo = message.photo[-1]
         # Скачиваем и сохраняем фото

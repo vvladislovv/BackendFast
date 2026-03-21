@@ -10,7 +10,7 @@ from integrations.telegram.keyboards import (
     get_main_menu, get_entity_menu, get_cases_menu, 
     get_applications_menu, get_back_keyboard, get_pagination_keyboard
 )
-from integrations.telegram import create_handlers, update_handlers, action_handlers, application_handlers
+from integrations.telegram import create_handlers, update_handlers, action_handlers, application_handlers, quick_md_handler, md_export
 from utils.logger import get_logger
 
 logger = get_logger()
@@ -436,9 +436,20 @@ def register_handlers(dp: Dispatcher, api_url: str):
     update_handlers.set_api_url(api_url)
     action_handlers.set_api_url(api_url)
     application_handlers.set_api_url(api_url)
+    quick_md_handler.set_api_url(api_url)
+    md_export.set_api_url(api_url)
     
-    # Команды
+    # Callback для главного меню
     dp.message.register(cmd_start, Command("start"))
+    
+    # Обработчик MD файлов (ДОЛЖЕН БЫТЬ ПЕРВЫМ среди message handlers!)
+    dp.message.register(quick_md_handler.handle_md_file, F.document)
+    
+    # FSM handler для деталей статьи после MD
+    dp.message.register(quick_md_handler.process_article_details, quick_md_handler.QuickArticleForm.waiting_for_details)
+    
+    # FSM handler для экспорта MD
+    dp.message.register(md_export.process_export_md_id, md_export.ExportMDForm.waiting_for_id)
     
     # Callback для главного меню
     dp.callback_query.register(handle_menu_vacancies, F.data == "menu_vacancies")
@@ -462,6 +473,8 @@ def register_handlers(dp: Dispatcher, api_url: str):
     dp.callback_query.register(handle_list_callback, F.data.contains("_page_"))  # Для пагинации
     dp.callback_query.register(handle_hidden_callback, F.data.endswith("_hidden"))  # Для скрытых элементов
     dp.callback_query.register(handle_fresh_cases_callback, F.data == "cases_fresh")
+    dp.callback_query.register(quick_md_handler.handle_upload_md_button, F.data == "articles_upload_md")  # MD upload button
+    dp.callback_query.register(md_export.handle_export_md_callback, F.data == "articles_export_md")  # MD export button
     dp.callback_query.register(handle_main_menu_callback, F.data == "main_menu")
     dp.callback_query.register(handle_entity_menu_callback, F.data.endswith("_menu"))
     dp.callback_query.register(create_handlers.handle_create_callback, F.data.endswith("_create"))

@@ -2,8 +2,6 @@
 from litestar import Controller, get, post, put, delete, patch
 from litestar.di import Provide
 from litestar.params import Dependency, Parameter
-from litestar.datastructures import UploadFile
-from litestar.enums import RequestEncodingType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db_session
@@ -63,37 +61,4 @@ class ArticleController(Controller):
     async def update_article_rating(self, article_id: int, rating: int = Parameter(ge=0, query="rating"), article_service: ArticleService = Dependency()) -> ArticleResponse:
         logger.info(f"PATCH /api/v1/articles/{article_id}/rating?rating={rating}")
         article = await article_service.update_rating(article_id, rating)
-        return ArticleResponse.model_validate(article)
-
-    @post("/upload-md", summary="Создать статью из MD файла", description="Загрузка статьи из Markdown файла. **Параметры (multipart/form-data):** title (обязательно), url (обязательно), md_file (обязательно, .md файл), photo (опционально, URL). **Требуется API ключ**", status_code=201)
-    async def upload_article_from_md(
-        self, 
-        data: UploadFile,
-        title: str = Parameter(query="title"),
-        url: str = Parameter(query="url"),
-        photo: str | None = Parameter(default=None, query="photo"),
-        article_service: ArticleService = Dependency()
-    ) -> ArticleResponse:
-        logger.info(f"POST /api/v1/articles/upload-md - title: {title}, file: {data.filename}")
-        
-        # Проверяем расширение файла
-        if not data.filename or not data.filename.endswith('.md'):
-            from litestar.exceptions import ValidationException
-            raise ValidationException("Файл должен иметь расширение .md")
-        
-        # Читаем содержимое файла
-        content_bytes = await data.read()
-        content = content_bytes.decode('utf-8')
-        
-        logger.info(f"📄 MD файл загружен: {data.filename}, размер: {len(content)} символов")
-        
-        # Создаем статью
-        article_data = ArticleCreate(
-            title=title,
-            url=url,
-            content=content,
-            photo=photo
-        )
-        
-        article = await article_service.create(article_data)
         return ArticleResponse.model_validate(article)

@@ -19,7 +19,8 @@ def get_main_menu() -> InlineKeyboardMarkup:
 
 def get_entity_menu(entity_type: str) -> InlineKeyboardMarkup:
     """Меню действий для сущности."""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    # Базовые кнопки для всех типов
+    buttons = [
         [
             InlineKeyboardButton(text="📋 Список", callback_data=f"{entity_type}_list"),
             InlineKeyboardButton(text="🔒 Скрытые", callback_data=f"{entity_type}_hidden"),
@@ -28,6 +29,17 @@ def get_entity_menu(entity_type: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="➕ Создать", callback_data=f"{entity_type}_create"),
             InlineKeyboardButton(text="🔍 Найти по ID", callback_data=f"{entity_type}_get"),
         ],
+    ]
+    
+    # Для статей добавляем кнопки для работы с MD
+    if entity_type == "articles":
+        buttons.insert(2, [
+            InlineKeyboardButton(text="📤 Загрузить MD", callback_data="articles_upload_md"),
+            InlineKeyboardButton(text="📥 Скачать MD", callback_data="articles_export_md"),
+        ])
+    
+    # Остальные кнопки
+    buttons.extend([
         [
             InlineKeyboardButton(text="✏️ Обновить", callback_data=f"{entity_type}_update"),
             InlineKeyboardButton(text="⭐ Рейтинг", callback_data=f"{entity_type}_rating"),
@@ -40,6 +52,8 @@ def get_entity_menu(entity_type: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
         ],
     ])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
 
