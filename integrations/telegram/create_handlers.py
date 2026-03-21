@@ -40,6 +40,7 @@ class ReviewForm(StatesGroup):
 class ArticleForm(StatesGroup):
     title = State()
     url = State()
+    content = State()
     photo = State()
 
 
@@ -65,7 +66,7 @@ async def handle_create_callback(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard("reviews"))
     elif entity_type == "articles":
         await state.set_state(ArticleForm.title)
-        text = "➕ <b>Создание статьи</b>\n\nШаг 1/3: Введите название статьи:"
+        text = "➕ <b>Создание статьи</b>\n\nШаг 1/4: Введите название статьи:"
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_back_keyboard(entity_type))
     elif entity_type == "cases":
         await state.set_state(CaseForm.name)
@@ -319,15 +320,51 @@ async def process_article_title(message: Message, state: FSMContext):
         return
     await state.update_data(title=message.text)
     await state.set_state(ArticleForm.url)
-    await message.answer("Шаг 2/3: Введите URL статьи:")
+    await message.answer("Шаг 2/4: Введите URL статьи:")
 
 
 async def process_article_url(message: Message, state: FSMContext):
     if not await admin_only(message):
         return
     await state.update_data(url=message.text)
+    await state.set_state(ArticleForm.content)
+    await message.answer("Шаг 3/4: Введите контент статьи в формате Markdown\n\n💡 Вы можете:\n• Ввести текст вручную\n• Отправить .md файл")
+
+
+async def process_article_content(message: Message, state: FSMContext):
+    if not await admin_only(message):
+        return
+    
+    # Проверяем, отправлен ли документ (MD файл)
+    if message.document:
+        # Проверяем расширение файла
+        if message.document.file_name and message.document.file_name.endswith('.md'):
+            try:
+                # Скачиваем файл
+                file = await message.bot.get_file(message.document.file_id)
+                file_content = await message.bot.download_file(file.file_path)
+                
+                # Читаем содержимое как текст
+                content = file_content.read().decode('utf-8')
+                
+                logger.info(f"📄 MD файл загружен: {message.document.file_name}, размер: {len(content)} символов")
+                
+                await state.update_data(content=content)
+                await state.set_state(ArticleForm.photo)
+                await message.answer(f"✅ MD файл загружен ({len(content)} символов)\n\nШаг 4/4: Отправьте фото или введите URL (или '-' чтобы пропустить):")
+                return
+            except Exception as e:
+                logger.error(f"Ошибка загрузки MD файла: {e}")
+                await message.answer("❌ Ошибка загрузки файла. Попробуйте снова или введите текст вручную:")
+                return
+        else:
+            await message.answer("❌ Пожалуйста, отправьте файл с расширением .md или введите текст вручную:")
+            return
+    
+    # Если это текст, сохраняем как обычно
+    await state.update_data(content=message.text)
     await state.set_state(ArticleForm.photo)
-    await message.answer("Шаг 3/3: Отправьте фото или введите URL (или '-' чтобы пропустить):")
+    await message.answer("Шаг 4/4: Отправьте фото или введите URL (или '-' чтобы пропустить):")
 
 
 async def process_article_photo(message: Message, state: FSMContext):
@@ -356,6 +393,7 @@ async def process_article_photo(message: Message, state: FSMContext):
     payload = {
         "title": data["title"],
         "url": data["url"],
+        "content": data["content"],
         "photo": photo_url
     }
     

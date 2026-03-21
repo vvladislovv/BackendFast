@@ -32,6 +32,12 @@ services:
       SECRET_KEY: fSyRcOQ2dhOUJcg-yxBRfmV6S876Y0WJ3c_CsdT-ARk
       TELEGRAM_BOT_TOKEN: 8318949552:AAETIEgzpnJJa4-lqkGA3CKWvPveGbuk5VY
       TELEGRAM_ADMIN_IDS: 7718206984
+      EMAIL_HOST: smtp.beget.ru
+      EMAIL_PORT: 465
+      EMAIL_USER: info@hacktaika.ru
+      EMAIL_PASSWORD: fQ%5vhKkcdx3
+      EMAIL_FROM: info@hacktaika.ru
+      EMAIL_ADMIN: info@hacktaika.ru
       DEBUG: "False"
       HOST: 0.0.0.0
       PORT: 8000
@@ -59,6 +65,12 @@ services:
       SECRET_KEY: fSyRcOQ2dhOUJcg-yxBRfmV6S876Y0WJ3c_CsdT-ARk
       TELEGRAM_BOT_TOKEN: 8318949552:AAETIEgzpnJJa4-lqkGA3CKWvPveGbuk5VY
       TELEGRAM_ADMIN_IDS: 7718206984
+      EMAIL_HOST: smtp.beget.ru
+      EMAIL_PORT: 465
+      EMAIL_USER: info@hacktaika.ru
+      EMAIL_PASSWORD: fQ%5vhKkcdx3
+      EMAIL_FROM: info@hacktaika.ru
+      EMAIL_ADMIN: info@hacktaika.ru
       LOG_LEVEL: INFO
       API_URL: http://api:8000
     volumes:

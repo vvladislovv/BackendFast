@@ -178,6 +178,7 @@ def get_article_fields_keyboard(article_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📌 Название", callback_data=f"article_edit_{article_id}_title")],
         [InlineKeyboardButton(text="🔗 Ссылка", callback_data=f"article_edit_{article_id}_url")],
+        [InlineKeyboardButton(text="📝 Контент (Markdown)", callback_data=f"article_edit_{article_id}_content")],
         [InlineKeyboardButton(text="📷 Фото", callback_data=f"article_edit_{article_id}_photo")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="articles_menu")],
     ])

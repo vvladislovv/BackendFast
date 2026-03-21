@@ -16,6 +16,7 @@ from schemas.application import ApplicationCreate, ApplicationResponse
 from models.application import Application
 from utils.logger import get_logger
 from integrations.telegram.application_notifier import notify_new_application
+from services.email_service import send_admin_notification, send_welcome_email
 
 logger = get_logger()
 
@@ -137,18 +138,37 @@ class ApplicationController(Controller):
         await db_session.commit()
         await db_session.refresh(application)
         
+        # Отправляем уведомления асинхронно
+        application_dict = {
+            "id": application.id,
+            "name": application.name,
+            "company": application.company,
+            "email": application.email,
+            "phone": application.phone,
+            "message": application.message,
+            "file_path": application.file_path
+        }
+        
         try:
-            asyncio.create_task(notify_new_application({
-                "id": application.id,
-                "name": application.name,
-                "company": application.company,
-                "email": application.email,
-                "phone": application.phone,
-                "message": application.message,
-                "file_path": application.file_path
-            }))
+            # Telegram уведомление админу
+            asyncio.create_task(notify_new_application(application_dict))
+            logger.info("📱 Telegram уведомление отправлено")
         except Exception as e:
-            logger.error(f"Ошибка уведомления: {e}")
+            logger.error(f"Ошибка Telegram уведомления: {e}")
+        
+        try:
+            # Email уведомление админу
+            asyncio.create_task(send_admin_notification(application_dict))
+            logger.info("📧 Email уведомление админу отправлено")
+        except Exception as e:
+            logger.error(f"Ошибка email уведомления админу: {e}")
+        
+        try:
+            # Приветственное письмо клиенту
+            asyncio.create_task(send_welcome_email(application.email, application.name))
+            logger.info(f"📧 Приветственное письмо отправлено на {application.email}")
+        except Exception as e:
+            logger.error(f"Ошибка отправки приветственного письма: {e}")
         
         return ApplicationResponse.model_validate(application)
     

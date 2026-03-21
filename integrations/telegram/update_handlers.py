@@ -144,6 +144,7 @@ async def process_update_id(message: Message, state: FSMContext):
         text = f"✏️ <b>Редактирование статьи #{entity_id}</b>\n\n"
         text += f"📌 Название: {entity_data.get('title', 'N/A')}\n"
         text += f"🔗 Ссылка: {entity_data.get('url', 'N/A')}\n"
+        text += f"📝 Контент: {entity_data.get('content', 'N/A')[:50]}...\n"
         text += f"📷 Фото: {entity_data.get('photo', 'Нет')}\n\n"
         text += "Выберите поле для изменения:"
         await message.answer(text, parse_mode="HTML", reply_markup=get_article_fields_keyboard(entity_id))
@@ -195,6 +196,7 @@ async def handle_field_edit_callback(callback: CallbackQuery, state: FSMContext)
         "photo": "📷 Фото (URL)",
         "title": "📌 Название",
         "url": "🔗 Ссылка",
+        "content": "📝 Контент (Markdown)",
         "employment_type": "💼 Тип занятости",
         "description": "📄 Описание",
         "about": "📄 Описание",

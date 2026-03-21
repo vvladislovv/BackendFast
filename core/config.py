@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     telegram_bot_token: str
     telegram_admin_ids: str
     
+    # Email
+    email_host: str = "smtp.beget.ru"
+    email_port: int = 465
+    email_user: str
+    email_password: str
+    email_from: str
+    email_admin: str
+    
     # Application
     debug: bool = False
     host: str = "0.0.0.0"

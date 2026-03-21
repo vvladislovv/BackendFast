@@ -210,9 +210,12 @@ async def handle_list_callback(callback: CallbackQuery):
                 text += f"   Создано: {item['created_at'][:10]}\n\n"
             elif entity_type == "articles":
                 hidden = "🔒 Скрыто" if item.get('is_hidden') else "👁 Видно"
+                content_text = item.get('content') or ''
+                content_short = (content_text[:100] + '...') if content_text and len(content_text) > 100 else content_text
                 text += f"🔹 <b>{item['title']}</b>\n"
                 text += f"   ID: {item['id']} | Рейтинг: {item['rating']} | {hidden}\n"
                 text += f"   URL: {item['url']}\n"
+                text += f"   Контент: {content_short}\n"
                 text += f"   Фото: {'✅ Есть' if item.get('photo') else '❌ Нет'}\n"
                 text += f"   Создано: {item['created_at'][:10]}\n\n"
             elif entity_type == "cases":
@@ -330,6 +333,9 @@ async def handle_hidden_callback(callback: CallbackQuery):
                 text += f"🔹 <b>{item['title']}</b> 🔒\n"
                 text += f"   ID: {item['id']} | Рейтинг: {item['rating']}\n"
                 text += f"   URL: {item['url']}\n"
+                content_text = item.get('content') or ''
+                content_short = (content_text[:100] + '...') if content_text and len(content_text) > 100 else content_text
+                text += f"   Контент: {content_short}\n"
                 text += f"   Фото: {'✅ Есть' if item.get('photo') else '❌ Нет'}\n"
                 text += f"   Создано: {item['created_at'][:10]}\n\n"
             elif entity_type == "cases":
@@ -481,6 +487,7 @@ def register_handlers(dp: Dispatcher, api_url: str):
     
     dp.message.register(create_handlers.process_article_title, create_handlers.ArticleForm.title)
     dp.message.register(create_handlers.process_article_url, create_handlers.ArticleForm.url)
+    dp.message.register(create_handlers.process_article_content, create_handlers.ArticleForm.content)
     dp.message.register(create_handlers.process_article_photo, create_handlers.ArticleForm.photo)
     
     dp.message.register(create_handlers.process_case_name, create_handlers.CaseForm.name)

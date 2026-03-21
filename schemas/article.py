@@ -7,6 +7,7 @@ class ArticleBase(BaseModel):
     """Базовая схема статьи."""
     title: str = Field(..., min_length=1, max_length=255, description="Название статьи")
     url: str = Field(..., min_length=1, description="Ссылка на статью")
+    content: str = Field(..., min_length=1, description="Контент статьи в формате Markdown")
     photo: str | None = Field(None, description="Путь к фото")
 
 
@@ -19,6 +20,7 @@ class ArticleUpdate(BaseModel):
     """Схема обновления статьи."""
     title: str | None = Field(None, min_length=1, max_length=255)
     url: str | None = Field(None, min_length=1)
+    content: str | None = Field(None, min_length=1, description="Контент статьи в формате Markdown")
     photo: str | None = None
 
 
