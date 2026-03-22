@@ -13,7 +13,7 @@ class CaseBase(BaseModel):
 
 class CaseCreate(CaseBase):
     """Схема создания кейса."""
-    rating: int | None = Field(None, ge=1, description="Рейтинг для сортировки (по умолчанию 1)")
+    rating: int | None = Field(None, ge=0, description="Рейтинг для сортировки (по умолчанию 1)")
 
 
 class CaseUpdate(BaseModel):
